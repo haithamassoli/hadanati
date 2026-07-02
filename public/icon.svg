@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- date-palm green rounded square -->
+  <rect width="512" height="512" rx="116" fill="#3d6b4f"/>
+  <!-- crescent-sun rising: white disc with a green disc cut offset to the top-end -->
+  <circle cx="256" cy="212" r="86" fill="#faf8f3"/>
+  <circle cx="296" cy="176" r="74" fill="#3d6b4f"/>
+  <!-- small leaf below the horizon -->
+  <path d="M256 314 C 316 338 322 396 258 408 C 194 396 200 338 256 314 Z" fill="#faf8f3"/>
+  <path d="M256 322 L 257 400" stroke="#3d6b4f" stroke-width="10" stroke-linecap="round" fill="none"/>
+</svg>

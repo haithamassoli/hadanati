@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-prod/
 /out/
 
 # production
@@ -39,6 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# serwist (generated service worker artifacts)
+/public/sw.js
+/public/sw.js.map
+/public/swe-worker*
 
 # Playwright
 node_modules/

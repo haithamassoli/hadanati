@@ -1,0 +1,126 @@
+import type { Namespace } from "./types";
+
+// Filled by the classrooms feature. Keys are dot-namespaced: "classrooms.*"
+export const classrooms: Namespace = {
+  ar: {
+    "classrooms.title": "الصفوف",
+    "classrooms.subtitle": "المراحل والصفوف الدراسية",
+
+    // Stages panel
+    "classrooms.stages.title": "المراحل",
+    "classrooms.stages.desc": "مثل: روضة أولى، روضة ثانية، تمهيدي",
+    "classrooms.stages.addPlaceholder": "اسم المرحلة الجديدة",
+    "classrooms.stages.add": "إضافة",
+    "classrooms.stages.empty": "لا توجد مراحل بعد، أضف أول مرحلة",
+    "classrooms.stages.rename": "إعادة تسمية المرحلة",
+    "classrooms.stages.save": "حفظ",
+    "classrooms.stages.cancel": "إلغاء",
+    "classrooms.stages.moveUp": "تحريك المرحلة لأعلى",
+    "classrooms.stages.moveDown": "تحريك المرحلة لأسفل",
+    "classrooms.stages.delete": "حذف المرحلة",
+    "classrooms.stages.deleteTitle": "حذف المرحلة؟",
+    "classrooms.stages.deleteDesc": "لا يمكن التراجع عن هذا الإجراء",
+    "classrooms.stages.deleteConfirm": "حذف",
+    "classrooms.toast.stageAdded": "تمت إضافة المرحلة",
+    "classrooms.toast.stageRenamed": "تم حفظ اسم المرحلة",
+    "classrooms.toast.stageDeleted": "تم حذف المرحلة",
+    "classrooms.error.stageHasClassrooms":
+      "لا يمكن حذف المرحلة لوجود صفوف مرتبطة بها",
+
+    // Classrooms panel
+    "classrooms.list.title": "الصفوف",
+    "classrooms.new": "صف جديد",
+    "classrooms.empty.title": "لا توجد صفوف بعد",
+    "classrooms.empty.desc": "أضف مرحلة ثم أنشئ أول صف",
+    "classrooms.stageEmpty": "لا توجد صفوف في هذه المرحلة",
+    "classrooms.card.teachers": "المعلمات",
+    "classrooms.card.noTeachers": "لم تُعيَّن معلمة بعد",
+    "classrooms.edit": "تعديل الصف",
+    "classrooms.delete": "حذف الصف",
+    "classrooms.deleteTitle": "حذف الصف؟",
+    "classrooms.deleteDesc": "لا يمكن التراجع عن هذا الإجراء",
+    "classrooms.deleteConfirm": "حذف",
+
+    // Classroom form
+    "classrooms.form.newTitle": "صف جديد",
+    "classrooms.form.editTitle": "تعديل الصف",
+    "classrooms.form.name": "اسم الصف",
+    "classrooms.form.namePlaceholder": "مثال: الفراشات",
+    "classrooms.form.stage": "المرحلة",
+    "classrooms.form.stagePlaceholder": "اختر المرحلة",
+    "classrooms.form.teachers": "المعلمات",
+    "classrooms.form.noTeachers": "لا يوجد معلمون بعد — أضفهم من صفحة الطاقم",
+    "classrooms.form.save": "حفظ",
+    "classrooms.form.create": "إنشاء الصف",
+    "classrooms.form.cancel": "إلغاء",
+    "classrooms.form.validation.name": "اسم الصف مطلوب",
+    "classrooms.form.validation.stage": "اختر المرحلة",
+    "classrooms.toast.created": "تم إنشاء الصف",
+    "classrooms.toast.updated": "تم حفظ الصف",
+    "classrooms.toast.deleted": "تم حذف الصف",
+    "classrooms.error.hasEnrollments":
+      "لا يمكن حذف الصف لوجود طلاب مسجّلين فيه",
+    "classrooms.error.generic": "حدث خطأ، حاول مرة أخرى",
+  },
+  en: {
+    "classrooms.title": "Classrooms",
+    "classrooms.subtitle": "Stages and classrooms",
+
+    // Stages panel
+    "classrooms.stages.title": "Stages",
+    "classrooms.stages.desc": "e.g. KG1, KG2, Pre-school",
+    "classrooms.stages.addPlaceholder": "New stage name",
+    "classrooms.stages.add": "Add",
+    "classrooms.stages.empty": "No stages yet — add the first one",
+    "classrooms.stages.rename": "Rename stage",
+    "classrooms.stages.save": "Save",
+    "classrooms.stages.cancel": "Cancel",
+    "classrooms.stages.moveUp": "Move stage up",
+    "classrooms.stages.moveDown": "Move stage down",
+    "classrooms.stages.delete": "Delete stage",
+    "classrooms.stages.deleteTitle": "Delete stage?",
+    "classrooms.stages.deleteDesc": "This action cannot be undone",
+    "classrooms.stages.deleteConfirm": "Delete",
+    "classrooms.toast.stageAdded": "Stage added",
+    "classrooms.toast.stageRenamed": "Stage renamed",
+    "classrooms.toast.stageDeleted": "Stage deleted",
+    "classrooms.error.stageHasClassrooms":
+      "Cannot delete a stage that has classrooms",
+
+    // Classrooms panel
+    "classrooms.list.title": "Classrooms",
+    "classrooms.new": "New classroom",
+    "classrooms.empty.title": "No classrooms yet",
+    "classrooms.empty.desc": "Add a stage first, then create a classroom",
+    "classrooms.stageEmpty": "No classrooms in this stage",
+    "classrooms.card.teachers": "Teachers",
+    "classrooms.card.noTeachers": "No teacher assigned yet",
+    "classrooms.edit": "Edit classroom",
+    "classrooms.delete": "Delete classroom",
+    "classrooms.deleteTitle": "Delete classroom?",
+    "classrooms.deleteDesc": "This action cannot be undone",
+    "classrooms.deleteConfirm": "Delete",
+
+    // Classroom form
+    "classrooms.form.newTitle": "New classroom",
+    "classrooms.form.editTitle": "Edit classroom",
+    "classrooms.form.name": "Classroom name",
+    "classrooms.form.namePlaceholder": "e.g. Butterflies",
+    "classrooms.form.stage": "Stage",
+    "classrooms.form.stagePlaceholder": "Choose a stage",
+    "classrooms.form.teachers": "Teachers",
+    "classrooms.form.noTeachers":
+      "No teachers yet — add them from the Staff page",
+    "classrooms.form.save": "Save",
+    "classrooms.form.create": "Create classroom",
+    "classrooms.form.cancel": "Cancel",
+    "classrooms.form.validation.name": "Classroom name is required",
+    "classrooms.form.validation.stage": "Choose a stage",
+    "classrooms.toast.created": "Classroom created",
+    "classrooms.toast.updated": "Classroom saved",
+    "classrooms.toast.deleted": "Classroom deleted",
+    "classrooms.error.hasEnrollments":
+      "Cannot delete a classroom with enrolled students",
+    "classrooms.error.generic": "Something went wrong, try again",
+  },
+};

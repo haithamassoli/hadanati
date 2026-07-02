@@ -1,26 +1,197 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* Attendance status quartet — the app's signature palette */
+  --color-present: var(--present);
+  --color-present-foreground: var(--present-foreground);
+  --color-present-soft: var(--present-soft);
+  --color-absent: var(--absent);
+  --color-absent-foreground: var(--absent-foreground);
+  --color-absent-soft: var(--absent-soft);
+  --color-late: var(--late);
+  --color-late-foreground: var(--late-foreground);
+  --color-late-soft: var(--late-soft);
+  --color-excused: var(--excused);
+  --color-excused-foreground: var(--excused-foreground);
+  --color-excused-soft: var(--excused-soft);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/*
+ * Hadanati — "Amman morning"
+ * Limestone-white ground, green-cast ink, date-palm green primary,
+ * apricot accent. Status quartet (present/absent/late/excused) is the
+ * signature and must stay consistent across staff + parent surfaces.
+ */
+:root {
+  --background: oklch(0.977 0.005 85);
+  --foreground: oklch(0.29 0.016 160);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.29 0.016 160);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.29 0.016 160);
+  --primary: oklch(0.47 0.07 160);
+  --primary-foreground: oklch(0.985 0.005 85);
+  --secondary: oklch(0.945 0.012 150);
+  --secondary-foreground: oklch(0.37 0.045 160);
+  --muted: oklch(0.955 0.008 85);
+  --muted-foreground: oklch(0.52 0.02 150);
+  --accent: oklch(0.93 0.04 75);
+  --accent-foreground: oklch(0.42 0.075 60);
+  --destructive: oklch(0.55 0.19 25);
+  --border: oklch(0.905 0.012 90);
+  --input: oklch(0.905 0.012 90);
+  --ring: oklch(0.47 0.07 160);
+  /* Evaluation axes: academic, social, motor, behavioral */
+  --chart-1: oklch(0.52 0.09 160);
+  --chart-2: oklch(0.72 0.13 70);
+  --chart-3: oklch(0.55 0.09 250);
+  --chart-4: oklch(0.55 0.12 330);
+  --chart-5: oklch(0.65 0.1 200);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.96 0.01 150);
+  --sidebar-foreground: oklch(0.33 0.025 160);
+  --sidebar-primary: oklch(0.47 0.07 160);
+  --sidebar-primary-foreground: oklch(0.985 0.005 85);
+  --sidebar-accent: oklch(0.905 0.025 155);
+  --sidebar-accent-foreground: oklch(0.33 0.045 160);
+  --sidebar-border: oklch(0.89 0.015 130);
+  --sidebar-ring: oklch(0.47 0.07 160);
+  --present: oklch(0.56 0.11 155);
+  --present-foreground: oklch(0.99 0 0);
+  --present-soft: oklch(0.93 0.045 155);
+  --absent: oklch(0.55 0.19 25);
+  --absent-foreground: oklch(0.99 0 0);
+  --absent-soft: oklch(0.93 0.05 25);
+  --late: oklch(0.72 0.13 70);
+  --late-foreground: oklch(0.3 0.06 60);
+  --late-soft: oklch(0.94 0.055 80);
+  --excused: oklch(0.55 0.08 250);
+  --excused-foreground: oklch(0.99 0 0);
+  --excused-soft: oklch(0.93 0.03 250);
+}
+
+.dark {
+  --background: oklch(0.22 0.012 160);
+  --foreground: oklch(0.95 0.008 85);
+  --card: oklch(0.265 0.014 160);
+  --card-foreground: oklch(0.95 0.008 85);
+  --popover: oklch(0.265 0.014 160);
+  --popover-foreground: oklch(0.95 0.008 85);
+  --primary: oklch(0.72 0.09 160);
+  --primary-foreground: oklch(0.2 0.02 160);
+  --secondary: oklch(0.32 0.02 160);
+  --secondary-foreground: oklch(0.9 0.015 150);
+  --muted: oklch(0.3 0.015 160);
+  --muted-foreground: oklch(0.68 0.02 150);
+  --accent: oklch(0.35 0.04 75);
+  --accent-foreground: oklch(0.9 0.05 80);
+  --destructive: oklch(0.65 0.17 25);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.72 0.09 160);
+  --chart-1: oklch(0.68 0.1 160);
+  --chart-2: oklch(0.78 0.13 70);
+  --chart-3: oklch(0.68 0.09 250);
+  --chart-4: oklch(0.68 0.12 330);
+  --chart-5: oklch(0.72 0.1 200);
+  --sidebar: oklch(0.25 0.014 160);
+  --sidebar-foreground: oklch(0.92 0.01 85);
+  --sidebar-primary: oklch(0.72 0.09 160);
+  --sidebar-primary-foreground: oklch(0.2 0.02 160);
+  --sidebar-accent: oklch(0.32 0.02 160);
+  --sidebar-accent-foreground: oklch(0.92 0.01 85);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.72 0.09 160);
+  --present: oklch(0.66 0.11 155);
+  --present-foreground: oklch(0.16 0.02 155);
+  --present-soft: oklch(0.34 0.05 155);
+  --absent: oklch(0.62 0.17 25);
+  --absent-foreground: oklch(0.16 0.02 25);
+  --absent-soft: oklch(0.34 0.06 25);
+  --late: oklch(0.76 0.13 70);
+  --late-foreground: oklch(0.22 0.05 60);
+  --late-soft: oklch(0.36 0.06 80);
+  --excused: oklch(0.66 0.08 250);
+  --excused-foreground: oklch(0.16 0.02 250);
+  --excused-soft: oklch(0.34 0.04 250);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading), var(--font-sans);
+  }
+  /* Money and dates align in tables */
+  [data-slot="table-cell"],
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Receipts and statements print clean: white ground, no app chrome */
+@media print {
+  :root {
+    --background: #fff;
+    --foreground: #000;
+  }
+  body {
+    background: #fff !important;
+  }
+  [data-print-hidden] {
+    display: none !important;
+  }
 }

@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Prod build alongside the dev server (AC-OFF-1 playwright test).
+    ".next-prod/**",
+    // Generated service worker artifacts (Serwist).
+    "public/sw.js",
+    "public/sw.js.map",
+    "public/swe-worker*",
   ]),
 ]);
 

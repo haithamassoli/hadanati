@@ -35,6 +35,8 @@ const PUSH_TITLES: Record<string, string> = {
 };
 const PUSH_FALLBACK_TITLE = "تحديث جديد حول طفلك";
 const PUSH_BODY = "افتح بوابة أولياء الأمور لعرض التفاصيل";
+const PUSH_ICON = "/icons/icon-192.png";
+const PUSH_BADGE = "/icons/badge-96.png";
 
 self.addEventListener("push", (event) => {
   let type = "";
@@ -48,7 +50,8 @@ self.addEventListener("push", (event) => {
       body: PUSH_BODY,
       dir: "rtl",
       lang: "ar",
-      icon: "/icons/icon-192.png",
+      icon: PUSH_ICON,
+      badge: PUSH_BADGE,
       data: { url: "/portal/inbox" },
     }),
   );

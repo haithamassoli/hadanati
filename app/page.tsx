@@ -25,12 +25,20 @@ import { thmanyahSans } from "@/fonts";
 
 type LandingLocale = "ar" | "en";
 
+const siteName = "حضانتي | Hadanati";
+const socialImage = {
+  url: "/opengraph-image.png",
+  width: 1200,
+  height: 630,
+} as const;
+
 const copy = {
   ar: {
     metadata: {
       title: "حضانتي | إدارة الحضانات في الأردن",
       description:
         "منصة عربية لإدارة الحضور، التقييمات، الرسوم، وبوابة أولياء الأمور للحضانات في الأردن.",
+      imageAlt: "حضانتي - منصة إدارة الحضانات في الأردن",
     },
     brand: {
       initial: "ح",
@@ -175,6 +183,7 @@ const copy = {
       title: "Hadanati | Nursery management for Jordan",
       description:
         "Arabic-first nursery management for attendance, evaluations, fees, and parent portals in Jordan.",
+      imageAlt: "Hadanati - nursery management for Jordan",
     },
     brand: {
       initial: "H",
@@ -343,7 +352,31 @@ async function getLandingLocale(): Promise<LandingLocale> {
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLandingLocale();
-  return copy[locale].metadata;
+  const { title, description, imageAlt } = copy[locale].metadata;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: "/",
+    },
+    openGraph: {
+      title,
+      description,
+      url: "/",
+      siteName,
+      locale: locale === "ar" ? "ar_JO" : "en_US",
+      alternateLocale: locale === "ar" ? ["en_US"] : ["ar_JO"],
+      type: "website",
+      images: [{ ...socialImage, alt: imageAlt }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [{ ...socialImage, alt: imageAlt }],
+    },
+  };
 }
 
 export default async function LandingPage() {
@@ -352,7 +385,9 @@ export default async function LandingPage() {
   const isArabic = locale === "ar";
   const dir = isArabic ? "rtl" : "ltr";
   const headingClass = isArabic ? "font-black" : "font-heading";
-  const arrowClass = isArabic ? "" : "rotate-180";
+  const arrowClass = isArabic
+    ? "group-hover:-translate-x-0.5"
+    : "rotate-180 group-hover:translate-x-0.5";
   const cardArrowClass = isArabic
     ? "group-hover:-translate-x-1"
     : "rotate-180 group-hover:translate-x-1";
@@ -364,13 +399,13 @@ export default async function LandingPage() {
         isArabic ? thmanyahSans.className : ""
       }`}
     >
-      <section className="relative isolate border-b bg-[radial-gradient(circle_at_12%_12%,var(--accent)_0,transparent_30%),linear-gradient(145deg,var(--background)_0%,var(--secondary)_52%,var(--background)_100%)]">
-        <div className="absolute inset-0 -z-10 opacity-[0.18] [background-image:linear-gradient(var(--foreground)_1px,transparent_1px),linear-gradient(90deg,var(--foreground)_1px,transparent_1px)] [background-size:44px_44px]" />
+      <section className="landing-hero relative isolate border-b bg-[radial-gradient(circle_at_12%_12%,var(--accent)_0,transparent_30%),linear-gradient(145deg,var(--background)_0%,var(--secondary)_52%,var(--background)_100%)]">
+        <div className="landing-grid absolute inset-0 -z-10 opacity-[0.18] [background-image:linear-gradient(var(--foreground)_1px,transparent_1px),linear-gradient(90deg,var(--foreground)_1px,transparent_1px)] [background-size:44px_44px]" />
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-5 sm:px-6 lg:gap-9 lg:px-8">
-          <header className="flex items-center justify-between gap-4 rounded-3xl border bg-card/70 px-4 py-3 shadow-sm backdrop-blur md:px-5">
-            <Link href="/" className="flex items-center gap-3">
+          <header className="landing-enter flex items-center justify-between gap-4 rounded-3xl border bg-card/70 px-4 py-3 shadow-sm backdrop-blur md:px-5">
+            <Link href="/" className="group flex items-center gap-3">
               <span
-                className={`flex size-11 items-center justify-center rounded-2xl bg-primary pb-1 text-2xl text-primary-foreground shadow-sm ${headingClass}`}
+                className={`flex size-11 items-center justify-center rounded-2xl bg-primary pb-1 text-2xl text-primary-foreground shadow-sm transition duration-300 group-hover:-rotate-2 group-hover:scale-105 ${headingClass}`}
               >
                 {t.brand.initial}
               </span>
@@ -384,13 +419,13 @@ export default async function LandingPage() {
               </span>
             </Link>
             <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
-              <a href="#features" className="hover:text-foreground">
+              <a href="#features" className="transition hover:text-foreground">
                 {t.nav.features}
               </a>
-              <a href="#offline" className="hover:text-foreground">
+              <a href="#offline" className="transition hover:text-foreground">
                 {t.nav.offline}
               </a>
-              <a href="#pilot" className="hover:text-foreground">
+              <a href="#pilot" className="transition hover:text-foreground">
                 {t.nav.pilot}
               </a>
             </nav>
@@ -404,7 +439,7 @@ export default async function LandingPage() {
               </Link>
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-primary/85 active:translate-y-px focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 {t.nav.staffLogin}
               </Link>
@@ -413,38 +448,38 @@ export default async function LandingPage() {
 
           <div className="grid items-center gap-8 pb-12 pt-1 lg:grid-cols-2 lg:gap-10 lg:pb-20 lg:pt-2">
             <div className="min-w-0 max-w-3xl">
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-card/80 px-3 py-1.5 text-sm font-medium text-primary shadow-sm backdrop-blur">
+              <div className="landing-enter landing-enter-1 mb-6 inline-flex items-center gap-2 rounded-full border bg-card/80 px-3 py-1.5 text-sm font-medium text-primary shadow-sm backdrop-blur">
                 <Sparkles className="size-4" />
                 {t.hero.eyebrow}
               </div>
               <h1
-                className={`${headingClass} text-[2.25rem] leading-[1.1] tracking-tight text-balance sm:text-[2.75rem] lg:text-[3.25rem] xl:text-[3.375rem]`}
+                className={`landing-enter landing-enter-2 ${headingClass} text-[2.25rem] leading-[1.1] tracking-tight text-balance sm:text-[2.75rem] lg:text-[3.25rem] xl:text-[3.375rem]`}
               >
                 {t.hero.title}
               </h1>
-              <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
+              <p className="landing-enter landing-enter-3 mt-6 max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl">
                 {t.hero.body}
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="landing-enter landing-enter-4 mt-8 flex flex-col gap-3 sm:flex-row">
                 <a
                   href="#pilot"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="group inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-primary/85 active:translate-y-px focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
                   {t.hero.primaryCta}
-                  <ArrowLeft className={`size-4 ${arrowClass}`} />
+                  <ArrowLeft className={`size-4 transition ${arrowClass}`} />
                 </a>
                 <Link
                   href="/portal"
-                  className="inline-flex h-12 items-center justify-center rounded-2xl border bg-card/80 px-6 text-base font-semibold shadow-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="inline-flex h-12 items-center justify-center rounded-2xl border bg-card/80 px-6 text-base font-semibold shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-muted active:translate-y-px focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 >
                   {t.hero.secondaryCta}
                 </Link>
               </div>
-              <div className="mt-8 grid max-w-2xl grid-cols-3 gap-3 text-sm">
+              <div className="landing-enter landing-enter-5 mt-8 grid max-w-2xl grid-cols-3 gap-3 text-sm">
                 {t.stats.map((stat) => (
                   <div
                     key={stat.label}
-                    className="rounded-2xl border bg-card/65 p-3 backdrop-blur"
+                    className="landing-stat rounded-2xl border bg-card/65 p-3 backdrop-blur transition duration-200 hover:-translate-y-0.5 hover:bg-card/90"
                   >
                     <span
                       className={`block text-2xl text-primary ${headingClass}`}
@@ -457,8 +492,8 @@ export default async function LandingPage() {
               </div>
             </div>
 
-            <div className="relative mx-auto w-full max-w-2xl lg:ms-auto">
-              <div className="absolute -inset-6 -z-10 rounded-[2.5rem] bg-accent/45 blur-3xl" />
+            <div className="landing-dashboard relative mx-auto w-full max-w-2xl lg:ms-auto">
+              <div className="landing-glow absolute -inset-6 -z-10 rounded-[2.5rem] bg-accent/45 blur-3xl" />
               <div className="rounded-[2rem] border bg-card/90 p-3 shadow-2xl shadow-primary/10 backdrop-blur">
                 <div className="rounded-[1.5rem] border bg-background p-4 sm:p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
@@ -470,17 +505,18 @@ export default async function LandingPage() {
                         {t.mock.dashboard}
                       </h2>
                     </div>
-                    <div className="rounded-full bg-present-soft px-3 py-1 text-sm font-semibold text-present">
+                    <div className="landing-live-pill rounded-full bg-present-soft px-3 py-1 text-sm font-semibold text-present">
                       {t.mock.presentCount}
                     </div>
                   </div>
 
                   <div className="grid gap-3 py-4 sm:grid-cols-[1fr_0.75fr]">
                     <div className="space-y-2">
-                      {t.mock.attendanceRows.map((row) => (
+                      {t.mock.attendanceRows.map((row, index) => (
                         <div
                           key={row.name}
-                          className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-2xl border bg-card px-3 py-2.5"
+                          className="landing-dashboard-row grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-2xl border bg-card px-3 py-2.5"
+                          style={{ animationDelay: `${360 + index * 90}ms` }}
                         >
                           <div className="flex items-center gap-3">
                             <span
@@ -491,7 +527,7 @@ export default async function LandingPage() {
                             <span className="font-semibold">{row.name}</span>
                           </div>
                           <span
-                            className={`${statusTone[row.status]} rounded-full px-2.5 py-1 text-xs font-bold ring-1`}
+                            className={`landing-status-pill ${statusTone[row.status]} rounded-full px-2.5 py-1 text-xs font-bold ring-1`}
                           >
                             {row.label}
                           </span>
@@ -503,7 +539,7 @@ export default async function LandingPage() {
                     </div>
 
                     <div className="grid gap-3">
-                      <div className="rounded-2xl border bg-primary p-4 text-primary-foreground">
+                      <div className="landing-offline-card rounded-2xl border bg-primary p-4 text-primary-foreground">
                         <div className="flex items-center justify-between gap-2">
                           <CloudOff className="size-5" />
                           <span className="rounded-full bg-primary-foreground/15 px-2 py-1 text-xs">
@@ -513,7 +549,7 @@ export default async function LandingPage() {
                         <p className="mt-5 text-sm opacity-80">
                           {t.mock.queue}
                         </p>
-                        <p className={`${headingClass} text-4xl leading-none`}>
+                        <p className={`landing-queue-count ${headingClass} text-4xl leading-none`}>
                           {t.mock.queueCount}
                         </p>
                         <p className="mt-1 text-sm opacity-85">
@@ -528,7 +564,7 @@ export default async function LandingPage() {
                           {t.mock.balance}
                         </p>
                         <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
-                          <div className="h-full w-2/3 rounded-full bg-late" />
+                          <div className="landing-progress-fill h-full w-2/3 rounded-full bg-late" />
                         </div>
                       </div>
                     </div>
@@ -542,10 +578,11 @@ export default async function LandingPage() {
                           {[2, 4, 3, 5].map((height, barIndex) => (
                             <span
                               key={`${axis}-${barIndex}`}
-                              className="w-2 rounded-full bg-chart-1/80"
+                              className="landing-chart-bar w-2 rounded-full bg-chart-1/80"
                               style={{
                                 height: `${height * 10 + index * 2}px`,
                                 backgroundColor: `var(--chart-${index + 1})`,
+                                animationDelay: `${barIndex * 90 + index * 50}ms`,
                               }}
                             />
                           ))}
@@ -557,7 +594,7 @@ export default async function LandingPage() {
               </div>
 
               <div
-                className={`absolute -bottom-8 hidden w-52 rounded-[1.75rem] border bg-card p-3 shadow-xl md:block ${
+                className={`landing-parent-card absolute -bottom-8 hidden w-52 rounded-[1.75rem] border bg-card p-3 shadow-xl md:block ${
                   isArabic ? "-left-3" : "-right-3"
                 }`}
               >

@@ -15,6 +15,7 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  cacheComponents: true,
   // Silences Next 16's hard error about a `webpack` config (added by
   // withSerwist) being present while Turbopack is the active bundler.
   turbopack: {},

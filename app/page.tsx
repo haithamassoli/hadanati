@@ -1,36 +1,50 @@
 "use client";
 
-// Landing: devices with stored parent codes go straight to the portal;
-// everyone else keeps the staff redirect. A visible portal link covers the
-// brief moment before redirect (and parents who haven't added a code yet).
+// Root "/" wears two hats. For fresh web visitors it's the marketing landing.
+// For people who already belong to the app it stays the quiet router it always
+// was: a returning parent (stored access code) → portal; an installed PWA or a
+// signed-in staff member → dashboard. Only the marketing audience sees the page.
 
-import { useEffect } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useT } from "@/lib/i18n";
-import { getCodes } from "@/lib/portal/codes";
+import { authClient } from "@/lib/auth-client";
+import { useCodes } from "@/lib/portal/codes";
 import { Spinner } from "@/components/ui/spinner";
+import { LandingPage } from "@/components/landing/landing-page";
 
 export default function Home() {
-  const { t } = useT();
   const router = useRouter();
+  const { codes } = useCodes();
+  const { data: session } = authClient.useSession();
+  const [standalone] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(display-mode: standalone)").matches,
+  );
+
+  const hasCodes = codes.length > 0;
+  const target = hasCodes
+    ? "/portal"
+    : standalone || session
+      ? "/dashboard"
+      : null;
 
   useEffect(() => {
-    router.replace(getCodes().codes.length > 0 ? "/portal" : "/dashboard");
-  }, [router]);
+    if (target) router.replace(target);
+  }, [target, router]);
 
-  return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4">
-      <div className="flex size-14 items-center justify-center rounded-2xl bg-primary pb-1 font-heading text-3xl text-primary-foreground">
-        ح
+  // ponytail: only the marketing audience (no code, not installed) sees the
+  // landing. Returning/installed users get a spinner then bounce. A signed-in
+  // staffer in a plain tab may glimpse the landing before the async session
+  // resolves — acceptable; blocking every visitor on that check would defeat
+  // the point of a fast public page.
+  if (hasCodes || standalone) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center">
+        <Spinner className="size-6 text-primary" />
       </div>
-      <Spinner className="size-5 text-primary" />
-      <Link
-        href="/portal"
-        className="text-sm text-primary underline-offset-4 hover:underline"
-      >
-        {t("portal.landing.parents")}
-      </Link>
-    </div>
-  );
+    );
+  }
+
+  return <LandingPage />;
 }

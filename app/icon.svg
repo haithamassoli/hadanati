@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Hadanati mark: an embrace (حضن) cradling a child, a sprout of growth above.
+       Full-bleed square so the same art serves `any` and `maskable` icon purposes. -->
+  <rect width="512" height="512" fill="#3d6b4f"/>
+  <!-- embrace: 240° arc, arms wrapping up around the child -->
+  <path d="M 159 216 A 112 112 0 1 0 353 216"
+        fill="none" stroke="#faf8f3" stroke-width="46" stroke-linecap="round"/>
+  <!-- child -->
+  <circle cx="256" cy="226" r="56" fill="#faf8f3"/>
+  <!-- sprout -->
+  <path d="M 256 172 L 256 150" stroke="#faf8f3" stroke-width="13" stroke-linecap="round" fill="none"/>
+  <path d="M 253 150 C 231 152 213 138 208 114 C 231 113 249 128 253 150 Z" fill="#faf8f3"/>
+  <path d="M 259 150 C 281 152 299 138 304 114 C 281 113 263 128 259 150 Z" fill="#faf8f3"/>
+</svg>

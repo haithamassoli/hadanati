@@ -13,6 +13,7 @@ import { dashboard } from "./ns/dashboard";
 import { finance } from "./ns/finance";
 import { portal } from "./ns/portal";
 import { announcements } from "./ns/announcements";
+import { landing } from "./ns/landing";
 
 export type Locale = "ar" | "en";
 
@@ -27,6 +28,7 @@ const ns = [
   finance,
   portal,
   announcements,
+  landing,
 ];
 
 const dictionaries: Record<Locale, Record<string, string>> = {

@@ -6,8 +6,11 @@ import { Toaster } from "@/components/ui/sonner";
 import { LocaleProvider, type Locale } from "@/lib/i18n";
 import "./globals.css";
 
-// TODO: Cache Components adoption. Refactor this route so this opt-out can be removed.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+// instant = false: deliberate, permanent Block. This root layout reads the
+// locale cookie to set <html dir/lang> at the document root — an irreducible
+// request-time read, so no static shell can prerender while i18n is
+// cookie-based (removing it would mean URL-based i18n across the whole app).
+// The opt-out covers the whole subtree, so no descendant route needs its own.
 export const instant = false;
 
 const siteUrl =

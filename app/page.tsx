@@ -23,8 +23,10 @@ import {
 import { LocaleToggle } from "@/components/locale-toggle";
 import { thmanyahSans } from "@/fonts";
 
-// TODO: Cache Components adoption. Refactor this route so this opt-out can be removed.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+// instant = false: deliberate Block — this page reads the locale cookie
+// (getLandingLocale) to render localized copy and metadata, a request-time
+// read with no slow data to stream behind. Same rationale as the root layout
+// (app/layout.tsx); with cookie-based i18n there's no static shell to prerender.
 export const instant = false;
 
 type LandingLocale = "ar" | "en";

@@ -195,3 +195,212 @@
     display: none !important;
   }
 }
+
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes landing-grid-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(44px, 44px, 0);
+  }
+}
+
+@keyframes landing-glow-breathe {
+  from {
+    opacity: 0.6;
+    transform: translate3d(0, 0, 0) scale(0.96);
+  }
+  to {
+    opacity: 0.95;
+    transform: translate3d(0, -10px, 0) scale(1.04);
+  }
+}
+
+@keyframes landing-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--present) 28%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 8px color-mix(in oklch, var(--present) 0%, transparent);
+  }
+}
+
+@keyframes landing-queue-shimmer {
+  from {
+    background-position: 130% 50%;
+  }
+  to {
+    background-position: -30% 50%;
+  }
+}
+
+@keyframes landing-progress-fill {
+  from {
+    transform: scaleX(0.18);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes landing-bar-grow {
+  from {
+    transform: scaleY(0.2);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.landing-grid {
+  animation: landing-grid-drift 24s linear infinite;
+}
+
+.landing-enter,
+.landing-dashboard {
+  animation: landing-rise 680ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing-enter-1 {
+  animation-delay: 90ms;
+}
+
+.landing-enter-2 {
+  animation-delay: 170ms;
+}
+
+.landing-enter-3 {
+  animation-delay: 250ms;
+}
+
+.landing-enter-4 {
+  animation-delay: 330ms;
+}
+
+.landing-enter-5 {
+  animation-delay: 410ms;
+}
+
+.landing-dashboard {
+  animation-delay: 260ms;
+}
+
+.landing-glow {
+  animation: landing-glow-breathe 5.5s cubic-bezier(0.25, 1, 0.5, 1) infinite alternate;
+}
+
+.landing-stat,
+.landing-dashboard-row,
+.landing-offline-card,
+.landing-parent-card {
+  will-change: transform;
+}
+
+.landing-dashboard-row {
+  animation: landing-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition:
+    transform 180ms cubic-bezier(0.25, 1, 0.5, 1),
+    background-color 180ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 180ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.landing-dashboard-row:hover {
+  box-shadow: 0 10px 30px color-mix(in oklch, var(--primary) 8%, transparent);
+  transform: translate3d(0, -2px, 0);
+}
+
+.landing-status-pill {
+  transition: transform 180ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.landing-dashboard-row:hover .landing-status-pill {
+  transform: scale(1.04);
+}
+
+.landing-live-pill {
+  animation: landing-live-pulse 2.6s ease-in-out infinite;
+}
+
+.landing-offline-card {
+  transition:
+    transform 220ms cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 220ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.landing-offline-card:hover {
+  box-shadow: 0 18px 40px color-mix(in oklch, var(--primary) 22%, transparent);
+  transform: translate3d(0, -3px, 0);
+}
+
+.landing-queue-count {
+  background: linear-gradient(
+    100deg,
+    currentColor 0%,
+    currentColor 35%,
+    color-mix(in oklch, var(--primary-foreground) 70%, transparent) 50%,
+    currentColor 65%,
+    currentColor 100%
+  );
+  background-clip: text;
+  background-size: 220% 100%;
+  color: var(--primary-foreground);
+  -webkit-text-fill-color: transparent;
+  animation: landing-queue-shimmer 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.landing-progress-fill {
+  animation: landing-progress-fill 900ms cubic-bezier(0.22, 1, 0.36, 1) 600ms both;
+  transform-origin: left center;
+}
+
+[dir="rtl"] .landing-progress-fill {
+  transform-origin: right center;
+}
+
+.landing-chart-bar {
+  animation: landing-bar-grow 620ms cubic-bezier(0.22, 1, 0.36, 1) 520ms both;
+  transform-origin: bottom center;
+}
+
+.landing-parent-card {
+  animation: landing-rise 640ms cubic-bezier(0.22, 1, 0.36, 1) 620ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-grid,
+  .landing-enter,
+  .landing-dashboard,
+  .landing-glow,
+  .landing-dashboard-row,
+  .landing-live-pill,
+  .landing-queue-count,
+  .landing-progress-fill,
+  .landing-chart-bar,
+  .landing-parent-card {
+    animation: none !important;
+  }
+
+  .landing-stat,
+  .landing-dashboard-row,
+  .landing-offline-card,
+  .landing-status-pill,
+  .landing-parent-card {
+    transition: none !important;
+  }
+
+  .landing-queue-count {
+    -webkit-text-fill-color: currentColor;
+  }
+}

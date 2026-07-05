@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Hadanati app icon">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="40" x2="430" y2="470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4f8768"/>
+      <stop offset="1" stop-color="#2f5842"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="214" y1="176" x2="300" y2="276" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f6c177"/>
+      <stop offset="1" stop-color="#e9974c"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <path d="M122 262c0-81 59-145 134-145s134 64 134 145v76c0 36-29 65-65 65H187c-36 0-65-29-65-65v-76Z" fill="#faf8f3"/>
+  <path d="M165 260c0-55 40-98 91-98s91 43 91 98v70c0 17-14 31-31 31H196c-17 0-31-14-31-31v-70Z" fill="#3d6b4f"/>
+  <circle cx="256" cy="225" r="39" fill="url(#sun)"/>
+  <path d="M256 287c50 21 70 68 39 100-15 15-57 20-74 0-31-32-11-79 35-100Z" fill="#faf8f3"/>
+  <path d="M256 296v80" stroke="#3d6b4f" stroke-width="12" stroke-linecap="round"/>
+  <path d="M256 336c-31-28-69-26-91 2 31 28 69 26 91-2Z" fill="#86b49a"/>
+  <path d="M256 336c31-28 69-26 91 2-31 28-69 26-91-2Z" fill="#f0b35f"/>
+</svg>

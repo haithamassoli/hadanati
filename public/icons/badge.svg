@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Hadanati notification badge">
+  <rect width="96" height="96" rx="24" fill="#3d6b4f"/>
+  <path d="M24 50c0-16 11-28 24-28s24 12 24 28v14c0 7-5 12-12 12H36c-7 0-12-5-12-12V50Z" fill="#faf8f3"/>
+  <path d="M35 49c0-8 6-15 13-15s13 7 13 15v12c0 3-2 5-5 5H40c-3 0-5-2-5-5V49Z" fill="#3d6b4f"/>
+  <circle cx="48" cy="46" r="6" fill="#faf8f3"/>
+</svg>

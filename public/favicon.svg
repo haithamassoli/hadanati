@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Hadanati">
+  <defs>
+    <linearGradient id="bg" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4f8768"/>
+      <stop offset="1" stop-color="#2f5842"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+  <path d="M15 33c0-11 8-20 17-20s17 9 17 20v10c0 5-4 9-9 9H24c-5 0-9-4-9-9V33Z" fill="#faf8f3"/>
+  <path d="M21 33c0-7 5-13 11-13s11 6 11 13v9c0 2-2 4-4 4H25c-2 0-4-2-4-4v-9Z" fill="#3d6b4f"/>
+  <circle cx="32" cy="29" r="5" fill="#f0b35f"/>
+  <path d="M32 37c6 3 8 9 4 13-2 2-6 2-8 0-4-4-2-10 4-13Z" fill="#faf8f3"/>
+</svg>

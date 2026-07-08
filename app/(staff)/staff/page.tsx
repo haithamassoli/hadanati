@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
+import { errorCode } from "@/lib/utils";
 import { Eye, EyeOff, Plus, ShieldAlert, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
@@ -53,12 +53,6 @@ import {
 type Role = "admin" | "teacher" | "accountant";
 
 const ROLES: Role[] = ["admin", "teacher", "accountant"];
-
-function errorCode(error: unknown): string | null {
-  return error instanceof ConvexError && typeof error.data === "string"
-    ? error.data
-    : null;
-}
 
 export default function StaffPage() {
   const { t } = useT();

@@ -89,7 +89,7 @@ export default function InvoicesPage() {
   const { t } = useT();
   return (
     <FinanceGate>
-      {({ nurseryId, role }) => (
+      {({ nurseryId }) => (
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 md:p-8">
           <header data-print-hidden>
             <h1 className="text-2xl">{t("finance.nav.invoices")}</h1>
@@ -100,7 +100,7 @@ export default function InvoicesPage() {
           <FinanceNav />
           {/* useSearchParams needs a Suspense boundary for prerendering */}
           <Suspense fallback={<Skeleton className="h-40 rounded-xl" />}>
-            <InvoicesView nurseryId={nurseryId} isAdmin={role === "admin"} />
+            <InvoicesView nurseryId={nurseryId} />
           </Suspense>
         </div>
       )}
@@ -108,13 +108,7 @@ export default function InvoicesPage() {
   );
 }
 
-function InvoicesView({
-  nurseryId,
-  isAdmin,
-}: {
-  nurseryId: Id<"nurseries">;
-  isAdmin: boolean;
-}) {
+function InvoicesView({ nurseryId }: { nurseryId: Id<"nurseries"> }) {
   const { t } = useT();
   const online = useOnline();
   const searchParams = useSearchParams();
@@ -271,7 +265,6 @@ function InvoicesView({
             <InvoiceDetail
               nurseryId={nurseryId}
               invoiceId={openInvoiceId}
-              isAdmin={isAdmin}
               onVoided={() => setOpenInvoiceId(null)}
             />
           )}
@@ -288,7 +281,6 @@ function InvoiceDetail({
 }: {
   nurseryId: Id<"nurseries">;
   invoiceId: Id<"invoices">;
-  isAdmin: boolean;
   onVoided: () => void;
 }) {
   const { t } = useT();

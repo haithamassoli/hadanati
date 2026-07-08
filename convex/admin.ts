@@ -340,51 +340,6 @@ export const finishSeedDemo = internalMutation({
 });
 
 /**
- * Deletes attendance + evaluations for a nursery so the AC-OFF-1 test can
- * rerun from a clean slate on the same date. Run with:
- *
- * npx convex run admin:resetSpike '{"nurseryId":"<id>"}'
- */
-export const resetSpike = internalMutation({
-  args: { nurseryId: v.id("nurseries") },
-  returns: v.object({
-    deletedAttendance: v.number(),
-    deletedEvaluations: v.number(),
-  }),
-  handler: async (ctx, args) => {
-    let deletedAttendance = 0;
-    for (;;) {
-      const batch = await ctx.db
-        .query("attendance")
-        .withIndex("by_nursery_and_classroom_and_date", (q) =>
-          q.eq("nurseryId", args.nurseryId),
-        )
-        .take(200);
-      if (batch.length === 0) break;
-      for (const row of batch) {
-        await ctx.db.delete("attendance", row._id);
-      }
-      deletedAttendance += batch.length;
-    }
-    let deletedEvaluations = 0;
-    for (;;) {
-      const batch = await ctx.db
-        .query("evaluations")
-        .withIndex("by_nursery_and_studentId", (q) =>
-          q.eq("nurseryId", args.nurseryId),
-        )
-        .take(200);
-      if (batch.length === 0) break;
-      for (const row of batch) {
-        await ctx.db.delete("evaluations", row._id);
-      }
-      deletedEvaluations += batch.length;
-    }
-    return { deletedAttendance, deletedEvaluations };
-  },
-});
-
-/**
  * M2 acceptance reset (AC-OFF specs): deletes ONE day's attendance across
  * the nursery plus that academic week's evaluations so the specs rerun
  * cleanly on the same date. syncLog is deliberately untouched — the
@@ -1135,49 +1090,6 @@ export const seedFinanceDemo = internalMutation({
 });
 
 /**
- * AC-OFF-1 verification (M0 offline spike). Run with:
- *
- * npx convex run admin:spikeReport '{"nurseryId":"<id>"}'
- */
-export const spikeReport = internalQuery({
-  args: { nurseryId: v.id("nurseries") },
-  returns: v.object({
-    attendanceCount: v.number(),
-    evaluationCount: v.number(),
-    syncLogCount: v.number(),
-    statuses: v.record(v.string(), v.number()),
-    lateStudents: v.array(v.string()),
-  }),
-  handler: async (ctx, args) => {
-    const statuses: Record<string, number> = {};
-    const lateStudents: string[] = [];
-    let attendanceCount = 0;
-    for await (const row of ctx.db.query("attendance")) {
-      if (row.nurseryId !== args.nurseryId) continue;
-      attendanceCount += 1;
-      statuses[row.status] = (statuses[row.status] ?? 0) + 1;
-      if (row.status === "late") {
-        lateStudents.push(row.studentId);
-      }
-    }
-    let evaluationCount = 0;
-    for await (const row of ctx.db.query("evaluations")) {
-      if (row.nurseryId === args.nurseryId) evaluationCount += 1;
-    }
-    // Spike-scale count (bounded; fine for the dev deployment).
-    const syncLogRows = await ctx.db.query("syncLog").take(4000);
-    const syncLogCount = syncLogRows.length;
-    return {
-      attendanceCount,
-      evaluationCount,
-      syncLogCount,
-      statuses,
-      lateStudents,
-    };
-  },
-});
-
-/**
  * M3 acceptance: bounded finance row counts for the E2E idempotency
  * assertions (tests/finance.spec.ts). Run with:
  *
@@ -1190,7 +1102,7 @@ export const financeReport = internalQuery({
     paymentCount: v.number(),
   }),
   handler: async (ctx, args) => {
-    // Acceptance-scale counts (dev deployment) — bounded like spikeReport.
+    // Acceptance-scale counts (dev deployment) — bounded.
     const invoices = await ctx.db
       .query("invoices")
       .withIndex("by_nurseryId", (q) => q.eq("nurseryId", args.nurseryId))

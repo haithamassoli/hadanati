@@ -176,8 +176,7 @@
     font-family: var(--font-heading), var(--font-sans);
   }
   /* Money and dates align in tables */
-  [data-slot="table-cell"],
-  .tabular {
+  [data-slot="table-cell"] {
     font-variant-numeric: tabular-nums;
   }
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQueries, type RequestForQueries } from "convex/react";
-import { ConvexError } from "convex/values";
+import { errorCode } from "@/lib/utils";
 import {
   ArrowDown,
   ArrowUp,
@@ -74,12 +74,6 @@ type Member = {
   name: string;
   email: string;
 };
-
-function errorCode(error: unknown): string | null {
-  return error instanceof ConvexError && typeof error.data === "string"
-    ? error.data
-    : null;
-}
 
 export default function ClassroomsPage() {
   const mine = useCachedQuery(api.nurseries.getMine, {});

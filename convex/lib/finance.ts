@@ -13,8 +13,6 @@ import { emitNotifications, type NotificationEvent } from "./notify";
 import { todayISO } from "./shared";
 
 export type StoredInvoiceStatus = Doc<"invoices">["status"];
-/** What the UI shows: stored status, except issued/partial past due → overdue. */
-export type ComputedInvoiceStatus = StoredInvoiceStatus;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -51,6 +49,14 @@ export function daysBetweenISO(earlier: string, later: string): number {
   return Math.round((b - a) / (24 * 60 * 60 * 1000));
 }
 
+/** Exclusive upper bound for a "YYYY-MM" month range on date strings. */
+export function nextMonthISO(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  return m === 12
+    ? `${y + 1}-01-01`
+    : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+}
+
 /**
  * Derived status (NEVER stored): issued/partial with dueDate strictly before
  * today → "overdue"; everything else passes through.
@@ -59,7 +65,7 @@ export function computeInvoiceStatus(
   stored: StoredInvoiceStatus,
   dueDate: string,
   today: string,
-): ComputedInvoiceStatus {
+): StoredInvoiceStatus {
   if ((stored === "issued" || stored === "partial") && dueDate < today) {
     return "overdue";
   }
@@ -107,7 +113,7 @@ export async function recomputeInvoiceStatus(
 }
 
 /** Idempotency key per (enrollment, plan cadence) — see schema comment. */
-export function planPeriodKey(
+function planPeriodKey(
   cadence: Doc<"feePlans">["cadence"],
   period: string,
   yearId: string,

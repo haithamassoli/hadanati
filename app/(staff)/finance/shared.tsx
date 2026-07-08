@@ -9,7 +9,6 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMutation } from "convex/react";
-import { ConvexError } from "convex/values";
 import { FilePlus2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
@@ -44,11 +43,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 export type FinanceRole = "admin" | "accountant";
 
-export function errorCode(error: unknown): string | null {
-  return error instanceof ConvexError && typeof error.data === "string"
-    ? error.data
-    : null;
-}
+export { errorCode } from "@/lib/utils";
 
 /**
  * Wrap an LTR fragment (dates, periods like "2026-07") in FSI…PDI isolates

@@ -537,7 +537,7 @@ export default async function LandingPage() {
                           >
                             {row.label}
                           </span>
-                          <span className="tabular text-sm text-muted-foreground">
+                          <span className="tabular-nums text-sm text-muted-foreground">
                             {row.time}
                           </span>
                         </div>
@@ -584,7 +584,7 @@ export default async function LandingPage() {
                           {[2, 4, 3, 5].map((height, barIndex) => (
                             <span
                               key={`${axis}-${barIndex}`}
-                              className="landing-chart-bar w-2 rounded-full bg-chart-1/80"
+                              className="landing-chart-bar w-2 rounded-full"
                               style={{
                                 height: `${height * 10 + index * 2}px`,
                                 backgroundColor: `var(--chart-${index + 1})`,

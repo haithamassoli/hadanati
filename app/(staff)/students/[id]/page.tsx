@@ -3,7 +3,7 @@
 import { use, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useMutation } from "convex/react";
-import { ConvexError } from "convex/values";
+import { errorCode } from "@/lib/utils";
 import {
   ArchiveRestore,
   Archive,
@@ -56,12 +56,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { formatAge } from "../format";
 import { StudentFormDialog } from "../student-form";
 import { AccessCodeCard } from "./access-code-card";
-
-function errorCode(error: unknown): string | null {
-  return error instanceof ConvexError && typeof error.data === "string"
-    ? error.data
-    : null;
-}
 
 export default function StudentDetailPage({
   params,

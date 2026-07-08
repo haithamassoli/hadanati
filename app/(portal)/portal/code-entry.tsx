@@ -4,11 +4,13 @@
 // auto-formats XXXX-XXXX-XXXX, paste-tolerant. The verified code is stored
 // locally (lib/portal/codes); the code itself is the credential (FR-AUTH-2).
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { z } from "zod";
 import { useMutation } from "convex/react";
 import { KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
+import { useAppForm } from "@/lib/form";
 import { useT } from "@/lib/i18n";
 import { addCode } from "@/lib/portal/codes";
 import { formatCodeInput, isCompleteCode } from "@/lib/portal/format";
@@ -29,81 +31,99 @@ export function CodeEntryForm({ onAdded }: { onAdded?: () => void }) {
   const { t } = useT();
   const online = useOnline();
   const verify = useMutation(api.portal.verify);
-  const [value, setValue] = useState("");
+  // Server response feedback (rate-limited / invalid / offline) — not field
+  // validation, so it stays outside the form.
   const [error, setError] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!isCompleteCode(value) || checking) return;
-    if (!online) {
-      setError(t("portal.entry.offline"));
-      return;
-    }
-    setChecking(true);
-    setError(null);
-    try {
-      const result = await verify({ code: value });
-      if (result.ok) {
-        addCode({
-          code: value,
-          studentName: result.student.nameAr,
-          nurseryName: result.nurseryName,
-          addedAt: Date.now(),
-        });
-        toast.success(
-          t("portal.entry.added").replace("{name}", result.student.nameAr),
-        );
-        setValue("");
-        onAdded?.();
-      } else {
-        setError(
-          result.reason === "rate_limited"
-            ? t("portal.entry.rateLimited")
-            : t("portal.entry.invalid"),
-        );
+  const form = useAppForm({
+    defaultValues: { code: "" },
+    validators: { onChange: z.object({ code: z.string() }) },
+    onSubmit: async ({ value }) => {
+      if (!isCompleteCode(value.code)) return;
+      if (!online) {
+        setError(t("portal.entry.offline"));
+        return;
       }
-    } catch {
-      setError(t("portal.entry.error"));
-    } finally {
-      setChecking(false);
-    }
-  }
+      setError(null);
+      try {
+        const result = await verify({ code: value.code });
+        if (result.ok) {
+          addCode({
+            code: value.code,
+            studentName: result.student.nameAr,
+            nurseryName: result.nurseryName,
+          });
+          toast.success(
+            t("portal.entry.added").replace("{name}", result.student.nameAr),
+          );
+          form.reset();
+          onAdded?.();
+        } else {
+          setError(
+            result.reason === "rate_limited"
+              ? t("portal.entry.rateLimited")
+              : t("portal.entry.invalid"),
+          );
+        }
+      } catch {
+        setError(t("portal.entry.error"));
+      }
+    },
+  });
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void form.handleSubmit();
+      }}
+      className="flex flex-col gap-4"
+    >
       <div className="flex flex-col gap-2">
         <Label htmlFor="portal-code">{t("portal.entry.codeLabel")}</Label>
-        <Input
-          id="portal-code"
-          dir="ltr"
-          inputMode="text"
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-          placeholder="XXXX-XXXX-XXXX"
-          className="h-14 text-center font-mono text-xl tracking-[0.2em] placeholder:tracking-normal"
-          value={value}
-          onChange={(e) => {
-            setValue(formatCodeInput(e.target.value));
-            setError(null);
-          }}
-        />
+        <form.AppField name="code">
+          {(field) => (
+            <Input
+              id="portal-code"
+              dir="ltr"
+              inputMode="text"
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              placeholder="XXXX-XXXX-XXXX"
+              className="h-14 text-center font-mono text-xl tracking-[0.2em] placeholder:tracking-normal"
+              value={field.state.value}
+              onChange={(e) => {
+                field.handleChange(formatCodeInput(e.target.value));
+                setError(null);
+              }}
+            />
+          )}
+        </form.AppField>
         {error !== null && (
           <p role="alert" className="text-sm text-destructive">
             {error}
           </p>
         )}
       </div>
-      <Button
-        type="submit"
-        size="lg"
-        className="h-12 text-base"
-        disabled={!isCompleteCode(value) || checking}
+      <form.Subscribe
+        selector={(s) => ({
+          complete: isCompleteCode(s.values.code),
+          submitting: s.isSubmitting,
+        })}
       >
-        {checking && <Spinner data-icon="inline-start" />}
-        {t("portal.entry.submit")}
-      </Button>
+        {({ complete, submitting }) => (
+          <Button
+            type="submit"
+            size="lg"
+            className="h-12 text-base"
+            disabled={!complete || submitting}
+          >
+            {submitting && <Spinner data-icon="inline-start" />}
+            {t("portal.entry.submit")}
+          </Button>
+        )}
+      </form.Subscribe>
     </form>
   );
 }

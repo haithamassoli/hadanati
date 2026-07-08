@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { z } from "zod";
 import { ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { useOnline } from "@/lib/offline/use-online";
+import { useAppForm } from "@/lib/form";
 import { useT } from "@/lib/i18n";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -17,8 +17,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function SettingsPage() {
@@ -55,41 +53,56 @@ function SettingsForm({ nursery }: { nursery: Doc<"nurseries"> }) {
   const { t } = useT();
   const online = useOnline();
   const update = useMutation(api.nurseries.update);
-  const [name, setName] = useState(nursery.name);
-  const [yearId, setYearId] = useState(nursery.activeYear.yearId);
-  const [start, setStart] = useState(nursery.activeYear.start);
-  const [end, setEnd] = useState(nursery.activeYear.end);
-  const [saving, setSaving] = useState(false);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    try {
-      await update({
-        nurseryId: nursery._id,
-        name: name.trim(),
-        activeYear: { yearId: yearId.trim(), start, end },
-      });
-      toast.success(t("settings.saved"));
-    } catch {
-      toast.error(t("settings.saveError"));
-    } finally {
-      setSaving(false);
-    }
-  }
+  const form = useAppForm({
+    defaultValues: {
+      name: nursery.name,
+      yearId: nursery.activeYear.yearId,
+      start: nursery.activeYear.start,
+      end: nursery.activeYear.end,
+    },
+    validators: {
+      onChange: z.object({
+        name: z.string(),
+        yearId: z.string(),
+        start: z.string(),
+        end: z.string(),
+      }),
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        await update({
+          nurseryId: nursery._id,
+          name: value.name.trim(),
+          activeYear: {
+            yearId: value.yearId.trim(),
+            start: value.start,
+            end: value.end,
+          },
+        });
+        toast.success(t("settings.saved"));
+      } catch {
+        toast.error(t("settings.saveError"));
+      }
+    },
+  });
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-6">
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void form.handleSubmit();
+      }}
+      className="flex flex-col gap-6"
+    >
       <Card>
         <CardHeader>
           <CardTitle>{t("settings.nurseryName")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <Input
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <form.AppField name="name">
+            {(field) => <field.TextField required />}
+          </form.AppField>
         </CardContent>
       </Card>
 
@@ -99,38 +112,38 @@ function SettingsForm({ nursery }: { nursery: Doc<"nurseries"> }) {
           <CardDescription>{t("settings.yearIdHint")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="yearId">{t("settings.yearId")}</Label>
-            <Input
-              id="yearId"
-              required
-              dir="ltr"
-              className="text-start"
-              value={yearId}
-              onChange={(e) => setYearId(e.target.value)}
-            />
-          </div>
+          <form.AppField name="yearId">
+            {(field) => (
+              <field.TextField
+                id="yearId"
+                required
+                dir="ltr"
+                className="text-start"
+                label={t("settings.yearId")}
+              />
+            )}
+          </form.AppField>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="yearStart">{t("settings.yearStart")}</Label>
-              <Input
-                id="yearStart"
-                type="date"
-                required
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="yearEnd">{t("settings.yearEnd")}</Label>
-              <Input
-                id="yearEnd"
-                type="date"
-                required
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-              />
-            </div>
+            <form.AppField name="start">
+              {(field) => (
+                <field.TextField
+                  id="yearStart"
+                  type="date"
+                  required
+                  label={t("settings.yearStart")}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="end">
+              {(field) => (
+                <field.TextField
+                  id="yearEnd"
+                  type="date"
+                  required
+                  label={t("settings.yearEnd")}
+                />
+              )}
+            </form.AppField>
           </div>
         </CardContent>
       </Card>
@@ -141,15 +154,11 @@ function SettingsForm({ nursery }: { nursery: Doc<"nurseries"> }) {
           {t("offline.requiresConnection")}
         </p>
       )}
-      <Button
-        type="submit"
-        size="lg"
-        className="self-start"
-        disabled={saving || !online}
-      >
-        {saving && <Spinner data-icon="inline-start" />}
-        {saving ? t("common.saving") : t("common.save")}
-      </Button>
+      <form.AppForm>
+        <form.SubmitButton size="lg" className="self-start" disabled={!online}>
+          {t("common.save")}
+        </form.SubmitButton>
+      </form.AppForm>
     </form>
   );
 }

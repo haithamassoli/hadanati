@@ -6,9 +6,9 @@
  * Crockford base32 alphabet: 32 symbols, no ambiguous I, L, O, U.
  * 12 chars × 5 bits = 60 bits of entropy (FR-AUTH-2 requires ≥ 60).
  */
-export const CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-export const CODE_LENGTH = 12;
+const CODE_LENGTH = 12;
 
 /** Generate a raw access code formatted as "XXXX-XXXX-XXXX". */
 export function generateRawCode(): string {
@@ -45,7 +45,7 @@ export function isValidCode(normalized: string): boolean {
 }
 
 /** Format a normalized 12-char code as "XXXX-XXXX-XXXX" for display. */
-export function formatCode(normalized: string): string {
+function formatCode(normalized: string): string {
   return [
     normalized.slice(0, 4),
     normalized.slice(4, 8),

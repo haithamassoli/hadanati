@@ -1,19 +1,14 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireStaff } from "./lib/guard";
-import { assertDateISO, assertFils } from "./lib/finance";
+import {
+  assertDateISO,
+  assertFils,
+  assertMonthISO,
+  nextMonthISO,
+} from "./lib/finance";
 
 // Expenses (FR-FIN-4). admin + accountant only.
-
-const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
-
-/** Exclusive upper bound for a "YYYY-MM" month range on date strings. */
-function nextMonthISO(month: string): string {
-  const [y, m] = month.split("-").map(Number);
-  return m === 12
-    ? `${y + 1}-01-01`
-    : `${y}-${String(m + 1).padStart(2, "0")}-01`;
-}
 
 const expenseShape = v.object({
   _id: v.id("expenses"),
@@ -35,9 +30,7 @@ export const list = query({
     let rows;
     if (args.month !== undefined) {
       const month = args.month;
-      if (!MONTH_RE.test(month)) {
-        throw new ConvexError("invalid_period");
-      }
+      assertMonthISO(month);
       rows = await ctx.db
         .query("expenses")
         .withIndex("by_nurseryId_and_date", (q) =>

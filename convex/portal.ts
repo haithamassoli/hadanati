@@ -6,7 +6,7 @@ import { paymentMethodValidator } from "./schema";
 import { hashCode, isValidCode, normalizeCode } from "./lib/codes";
 import { portalEnrollment, resolveCode } from "./lib/portal";
 import { todayISO } from "./lib/shared";
-import { computeInvoiceStatus } from "./lib/finance";
+import { computeInvoiceStatus, invoicePaidFils } from "./lib/finance";
 
 // PUBLIC, NO staff auth: the access code IS the bearer credential (FR-AUTH-2).
 // Every function hashes the code → accessCodes.by_codeHash (active) → student.
@@ -170,14 +170,7 @@ export const home = query({
       ) {
         continue;
       }
-      balanceFils += invoice.amountFils;
-      const payments = await ctx.db
-        .query("payments")
-        .withIndex("by_invoiceId", (q) => q.eq("invoiceId", invoice._id))
-        .take(100);
-      for (const payment of payments) {
-        balanceFils -= payment.amountFils;
-      }
+      balanceFils += invoice.amountFils - (await invoicePaidFils(ctx, invoice._id));
     }
 
     const photoUrl =

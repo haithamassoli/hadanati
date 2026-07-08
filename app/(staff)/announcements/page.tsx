@@ -1,12 +1,14 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
+import { useRef, useState } from "react";
+import { z } from "zod";
 import Image from "next/image";
 import { useMutation, useQuery } from "convex/react";
 import { ImagePlus, Megaphone, Send, Trash2, WifiOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { useAppForm } from "@/lib/form";
 import { useT, type Locale } from "@/lib/i18n";
 import { useOnline } from "@/lib/offline/use-online";
 import {
@@ -35,17 +37,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
 
 const NURSERY_WIDE = "__nursery__";
 
@@ -160,12 +153,9 @@ function ComposeCard({
   const create = useMutation(api.announcements.create);
   const generateUploadUrl = useMutation(api.announcements.generateUploadUrl);
 
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [scope, setScope] = useState<string>(isAdmin ? NURSERY_WIDE : "");
+  // Image upload is imperative (object URLs, revoke) — kept outside the form.
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [publishing, setPublishing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Teachers may only post to their own classrooms; admins to any or nursery-wide.
@@ -179,59 +169,59 @@ function ComposeCard({
     setPreviewUrl(picked !== null ? URL.createObjectURL(picked) : null);
   }
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (title.trim() === "") {
-      toast.error(t("announcements.validation.title"));
-      return;
-    }
-    if (body.trim() === "") {
-      toast.error(t("announcements.validation.body"));
-      return;
-    }
-    if (scope === "") {
-      toast.error(t("announcements.validation.scope"));
-      return;
-    }
-    setPublishing(true);
-    try {
-      let imageId: Id<"_storage"> | undefined;
-      if (file !== null) {
-        try {
-          const uploadUrl = await generateUploadUrl({ nurseryId });
-          const response = await fetch(uploadUrl, {
-            method: "POST",
-            headers: { "Content-Type": file.type },
-            body: file,
-          });
-          if (!response.ok) throw new Error("upload_failed");
-          const json = (await response.json()) as { storageId: Id<"_storage"> };
-          imageId = json.storageId;
-        } catch {
-          toast.error(t("announcements.error.upload"));
-          return;
+  const form = useAppForm({
+    defaultValues: { title: "", body: "", scope: isAdmin ? NURSERY_WIDE : "" },
+    validators: {
+      onChange: z.object({
+        title: z.string().refine((v) => v.trim() !== "", {
+          message: t("announcements.validation.title"),
+        }),
+        body: z.string().refine((v) => v.trim() !== "", {
+          message: t("announcements.validation.body"),
+        }),
+        scope: z.string().min(1, { message: t("announcements.validation.scope") }),
+      }),
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        let imageId: Id<"_storage"> | undefined;
+        if (file !== null) {
+          try {
+            const uploadUrl = await generateUploadUrl({ nurseryId });
+            const response = await fetch(uploadUrl, {
+              method: "POST",
+              headers: { "Content-Type": file.type },
+              body: file,
+            });
+            if (!response.ok) throw new Error("upload_failed");
+            const json = (await response.json()) as {
+              storageId: Id<"_storage">;
+            };
+            imageId = json.storageId;
+          } catch {
+            toast.error(t("announcements.error.upload"));
+            return;
+          }
         }
+        await create({
+          nurseryId,
+          classroomId:
+            value.scope === NURSERY_WIDE
+              ? undefined
+              : (value.scope as Id<"classrooms">),
+          title: value.title.trim(),
+          body: value.body.trim(),
+          imageId,
+        });
+        toast.success(t("announcements.toast.published"));
+        form.reset();
+        pickImage(null);
+        if (fileInputRef.current !== null) fileInputRef.current.value = "";
+      } catch {
+        toast.error(t("announcements.error.generic"));
       }
-      await create({
-        nurseryId,
-        classroomId:
-          scope === NURSERY_WIDE ? undefined : (scope as Id<"classrooms">),
-        title: title.trim(),
-        body: body.trim(),
-        imageId,
-      });
-      toast.success(t("announcements.toast.published"));
-      setTitle("");
-      setBody("");
-      setScope(isAdmin ? NURSERY_WIDE : "");
-      pickImage(null);
-      if (fileInputRef.current !== null) fileInputRef.current.value = "";
-    } catch {
-      toast.error(t("announcements.error.generic"));
-    } finally {
-      setPublishing(false);
-    }
-  }
+    },
+  });
 
   return (
     <Card>
@@ -245,135 +235,150 @@ function ComposeCard({
             {t("announcements.compose.offline")}
           </div>
         )}
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <fieldset
-            disabled={!online || publishing}
-            className="flex flex-col gap-4 disabled:opacity-60"
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <form.Subscribe
+            selector={(s) => ({
+              submitting: s.isSubmitting,
+              ready:
+                s.values.title.trim() !== "" &&
+                s.values.body.trim() !== "" &&
+                s.values.scope !== "",
+            })}
           >
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="announcement-title">
-                {t("announcements.compose.titleLabel")}
-              </Label>
-              <Input
-                id="announcement-title"
-                value={title}
-                placeholder={t("announcements.compose.titlePlaceholder")}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="announcement-body">
-                {t("announcements.compose.bodyLabel")}
-              </Label>
-              <Textarea
-                id="announcement-body"
-                value={body}
-                rows={4}
-                placeholder={t("announcements.compose.bodyPlaceholder")}
-                onChange={(e) => setBody(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label>{t("announcements.compose.scopeLabel")}</Label>
-                {!isAdmin && classrooms !== undefined && scopeOptions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {t("announcements.compose.noClassrooms")}
-                  </p>
-                ) : (
-                  <Select value={scope} onValueChange={setScope}>
-                    <SelectTrigger
-                      className="w-full"
-                      aria-label={t("announcements.compose.scopeLabel")}
-                    >
-                      <SelectValue
-                        placeholder={t("announcements.compose.scopePlaceholder")}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {isAdmin && (
-                        <SelectItem value={NURSERY_WIDE}>
-                          {t("announcements.compose.scopeNursery")}
-                        </SelectItem>
-                      )}
-                      {scopeOptions.map((classroom) => (
-                        <SelectItem key={classroom._id} value={classroom._id}>
-                          {classroom.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="announcement-image">
-                  {t("announcements.compose.imageLabel")}
-                </Label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <ImagePlus data-icon="inline-start" />
-                    {t("announcements.compose.addImage")}
-                  </Button>
-                  {file !== null && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={t("announcements.compose.removeImage")}
-                      onClick={() => {
-                        pickImage(null);
-                        if (fileInputRef.current !== null) {
-                          fileInputRef.current.value = "";
-                        }
-                      }}
-                    >
-                      <X />
-                    </Button>
-                  )}
-                </div>
-                <input
-                  ref={fileInputRef}
-                  id="announcement-image"
-                  type="file"
-                  accept="image/*"
-                  className="sr-only"
-                  onChange={(e) => pickImage(e.target.files?.[0] ?? null)}
-                />
-              </div>
-            </div>
-            {previewUrl !== null && (
-              // eslint-disable-next-line @next/next/no-img-element -- local blob preview
-              <img
-                src={previewUrl}
-                alt={t("announcements.imageAlt")}
-                className="max-h-56 w-fit rounded-lg border object-cover"
-              />
-            )}
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                disabled={
-                  !online ||
-                  publishing ||
-                  scope === "" ||
-                  title.trim() === "" ||
-                  body.trim() === ""
-                }
+            {({ submitting, ready }) => (
+              <fieldset
+                disabled={!online || submitting}
+                className="flex flex-col gap-4 disabled:opacity-60"
               >
-                {publishing ? (
-                  <Spinner data-icon="inline-start" />
-                ) : (
-                  <Send data-icon="inline-start" />
+                <form.AppField name="title">
+                  {(field) => (
+                    <field.TextField
+                      id="announcement-title"
+                      label={t("announcements.compose.titleLabel")}
+                      placeholder={t("announcements.compose.titlePlaceholder")}
+                    />
+                  )}
+                </form.AppField>
+                <form.AppField name="body">
+                  {(field) => (
+                    <field.TextareaField
+                      id="announcement-body"
+                      rows={4}
+                      label={t("announcements.compose.bodyLabel")}
+                      placeholder={t("announcements.compose.bodyPlaceholder")}
+                    />
+                  )}
+                </form.AppField>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {!isAdmin &&
+                  classrooms !== undefined &&
+                  scopeOptions.length === 0 ? (
+                    <div className="flex flex-col gap-2">
+                      <Label>{t("announcements.compose.scopeLabel")}</Label>
+                      <p className="text-sm text-muted-foreground">
+                        {t("announcements.compose.noClassrooms")}
+                      </p>
+                    </div>
+                  ) : (
+                    <form.AppField name="scope">
+                      {(field) => (
+                        <field.SelectField
+                          label={t("announcements.compose.scopeLabel")}
+                          ariaLabel={t("announcements.compose.scopeLabel")}
+                          placeholder={t(
+                            "announcements.compose.scopePlaceholder",
+                          )}
+                          options={[
+                            ...(isAdmin
+                              ? [
+                                  {
+                                    value: NURSERY_WIDE,
+                                    label: t(
+                                      "announcements.compose.scopeNursery",
+                                    ),
+                                  },
+                                ]
+                              : []),
+                            ...scopeOptions.map((classroom) => ({
+                              value: classroom._id,
+                              label: classroom.name,
+                            })),
+                          ]}
+                        />
+                      )}
+                    </form.AppField>
+                  )}
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="announcement-image">
+                      {t("announcements.compose.imageLabel")}
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <ImagePlus data-icon="inline-start" />
+                        {t("announcements.compose.addImage")}
+                      </Button>
+                      {file !== null && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t("announcements.compose.removeImage")}
+                          onClick={() => {
+                            pickImage(null);
+                            if (fileInputRef.current !== null) {
+                              fileInputRef.current.value = "";
+                            }
+                          }}
+                        >
+                          <X />
+                        </Button>
+                      )}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      id="announcement-image"
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={(e) => pickImage(e.target.files?.[0] ?? null)}
+                    />
+                  </div>
+                </div>
+                {previewUrl !== null && (
+                  // eslint-disable-next-line @next/next/no-img-element -- local blob preview
+                  <img
+                    src={previewUrl}
+                    alt={t("announcements.imageAlt")}
+                    className="max-h-56 w-fit rounded-lg border object-cover"
+                  />
                 )}
-                {t("announcements.compose.publish")}
-              </Button>
-            </div>
-          </fieldset>
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    disabled={!online || submitting || !ready}
+                  >
+                    {submitting ? (
+                      <Spinner data-icon="inline-start" />
+                    ) : (
+                      <Send data-icon="inline-start" />
+                    )}
+                    {t("announcements.compose.publish")}
+                  </Button>
+                </div>
+              </fieldset>
+            )}
+          </form.Subscribe>
         </form>
       </CardContent>
     </Card>

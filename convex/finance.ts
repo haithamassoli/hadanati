@@ -4,17 +4,9 @@ import type { Doc } from "./_generated/dataModel";
 import { paymentMethodValidator } from "./schema";
 import { requireStaff } from "./lib/guard";
 import { todayISO } from "./lib/shared";
-import { daysBetweenISO, invoicePaidFils } from "./lib/finance";
+import { daysBetweenISO, invoicePaidFils, nextMonthISO } from "./lib/finance";
 
 // Finance dashboard + statement (FR-FIN-5). admin + accountant only.
-
-/** Exclusive upper bound for a "YYYY-MM" month range on date strings. */
-function nextMonthISO(month: string): string {
-  const [y, m] = month.split("-").map(Number);
-  return m === 12
-    ? `${y + 1}-01-01`
-    : `${y}-${String(m + 1).padStart(2, "0")}-01`;
-}
 
 export const overview = query({
   args: { nurseryId: v.id("nurseries") },

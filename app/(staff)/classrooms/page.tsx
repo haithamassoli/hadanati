@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState } from "react";
+import { z } from "zod";
 import { useMutation, useQueries, type RequestForQueries } from "convex/react";
 import { errorCode } from "@/lib/utils";
 import {
@@ -18,6 +19,7 @@ import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { useCachedQuery } from "@/lib/offline/use-cached-query";
 import { useOnline } from "@/lib/offline/use-online";
+import { useAppForm } from "@/lib/form";
 import { useT } from "@/lib/i18n";
 import { DataAge } from "@/components/data-age";
 import {
@@ -57,13 +59,6 @@ import {
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { formatCount } from "../students/format";
 
@@ -309,25 +304,24 @@ function StagesPanel({
   const updateStage = useMutation(api.stages.update);
   const removeStage = useMutation(api.stages.remove);
 
-  const [newName, setNewName] = useState("");
-  const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<Id<"stages"> | null>(null);
   const [draftName, setDraftName] = useState("");
 
-  async function onAdd(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (newName.trim() === "") return;
-    setAdding(true);
-    try {
-      await createStage({ nurseryId, name: newName.trim() });
-      setNewName("");
-      toast.success(t("classrooms.toast.stageAdded"));
-    } catch {
-      toast.error(t("classrooms.error.generic"));
-    } finally {
-      setAdding(false);
-    }
-  }
+  const addForm = useAppForm({
+    defaultValues: { name: "" },
+    validators: { onChange: z.object({ name: z.string() }) },
+    onSubmit: async ({ value }) => {
+      const name = value.name.trim();
+      if (name === "") return;
+      try {
+        await createStage({ nurseryId, name });
+        addForm.reset();
+        toast.success(t("classrooms.toast.stageAdded"));
+      } catch {
+        toast.error(t("classrooms.error.generic"));
+      }
+    },
+  });
 
   async function onRename(stageId: Id<"stages">) {
     if (draftName.trim() === "") return;
@@ -376,24 +370,44 @@ function StagesPanel({
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {isAdmin && (
-          <form onSubmit={onAdd} className="flex items-center gap-2">
-            <Input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder={t("classrooms.stages.addPlaceholder")}
-            />
-            <Button
-              type="submit"
-              size="sm"
-              disabled={adding || newName.trim() === "" || !online}
-            >
-              {adding ? (
-                <Spinner data-icon="inline-start" />
-              ) : (
-                <Plus data-icon="inline-start" />
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void addForm.handleSubmit();
+            }}
+            className="flex items-center gap-2"
+          >
+            <addForm.AppField name="name">
+              {(field) => (
+                <Input
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  placeholder={t("classrooms.stages.addPlaceholder")}
+                />
               )}
-              {t("classrooms.stages.add")}
-            </Button>
+            </addForm.AppField>
+            <addForm.Subscribe
+              selector={(s) => ({
+                empty: s.values.name.trim() === "",
+                submitting: s.isSubmitting,
+              })}
+            >
+              {({ empty, submitting }) => (
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={empty || submitting || !online}
+                >
+                  {submitting ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <Plus data-icon="inline-start" />
+                  )}
+                  {t("classrooms.stages.add")}
+                </Button>
+              )}
+            </addForm.Subscribe>
           </form>
         )}
 
@@ -602,56 +616,49 @@ function ClassroomFormDialog({
   const createClassroom = useMutation(api.classrooms.create);
   const updateClassroom = useMutation(api.classrooms.update);
 
-  const [name, setName] = useState(classroom?.name ?? "");
-  const [stageId, setStageId] = useState<string>(classroom?.stageId ?? "");
-  const [teacherIds, setTeacherIds] = useState<Id<"users">[]>(
-    classroom?.teacherIds ?? [],
-  );
-  const [saving, setSaving] = useState(false);
-
-  function toggleTeacher(userId: Id<"users">, checked: boolean) {
-    setTeacherIds((ids) =>
-      checked ? [...ids, userId] : ids.filter((id) => id !== userId),
-    );
-  }
-
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (name.trim() === "") {
-      toast.error(t("classrooms.form.validation.name"));
-      return;
-    }
-    if (stageId === "") {
-      toast.error(t("classrooms.form.validation.stage"));
-      return;
-    }
-    setSaving(true);
-    try {
-      if (classroom !== undefined) {
-        await updateClassroom({
-          nurseryId,
-          classroomId: classroom._id,
-          name: name.trim(),
-          stageId: stageId as Id<"stages">,
-          teacherIds,
-        });
-        toast.success(t("classrooms.toast.updated"));
-      } else {
-        await createClassroom({
-          nurseryId,
-          name: name.trim(),
-          stageId: stageId as Id<"stages">,
-          teacherIds,
-        });
-        toast.success(t("classrooms.toast.created"));
+  const form = useAppForm({
+    defaultValues: {
+      name: classroom?.name ?? "",
+      stageId: (classroom?.stageId ?? "") as string,
+      teacherIds: classroom?.teacherIds ?? [],
+    },
+    validators: {
+      onChange: z.object({
+        name: z.string().min(1, {
+          message: t("classrooms.form.validation.name"),
+        }),
+        stageId: z.string().min(1, {
+          message: t("classrooms.form.validation.stage"),
+        }),
+        teacherIds: z.array(z.custom<Id<"users">>()),
+      }),
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        if (classroom !== undefined) {
+          await updateClassroom({
+            nurseryId,
+            classroomId: classroom._id,
+            name: value.name.trim(),
+            stageId: value.stageId as Id<"stages">,
+            teacherIds: value.teacherIds,
+          });
+          toast.success(t("classrooms.toast.updated"));
+        } else {
+          await createClassroom({
+            nurseryId,
+            name: value.name.trim(),
+            stageId: value.stageId as Id<"stages">,
+            teacherIds: value.teacherIds,
+          });
+          toast.success(t("classrooms.toast.created"));
+        }
+        onOpenChange(false);
+      } catch {
+        toast.error(t("classrooms.error.generic"));
       }
-      onOpenChange(false);
-    } catch {
-      toast.error(t("classrooms.error.generic"));
-    } finally {
-      setSaving(false);
-    }
-  }
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -668,62 +675,72 @@ function ClassroomFormDialog({
               : t("classrooms.form.newTitle")}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="classroom-name">{t("classrooms.form.name")}</Label>
-            <Input
-              id="classroom-name"
-              required
-              value={name}
-              placeholder={t("classrooms.form.namePlaceholder")}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>{t("classrooms.form.stage")}</Label>
-            <Select value={stageId} onValueChange={setStageId}>
-              <SelectTrigger
-                className="w-full"
-                aria-label={t("classrooms.form.stage")}
-              >
-                <SelectValue placeholder={t("classrooms.form.stagePlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {stages.map((stage) => (
-                  <SelectItem key={stage._id} value={stage._id}>
-                    {stage.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>{t("classrooms.form.teachers")}</Label>
-            {teachers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {t("classrooms.form.noTeachers")}
-              </p>
-            ) : (
-              <div className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-lg border p-2">
-                {teachers.map((teacher) => (
-                  <label
-                    key={teacher.userId}
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/60"
-                  >
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-primary"
-                      checked={teacherIds.includes(teacher.userId)}
-                      onChange={(e) =>
-                        toggleTeacher(teacher.userId, e.target.checked)
-                      }
-                    />
-                    {teacher.name}
-                  </label>
-                ))}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <form.AppField name="name">
+            {(field) => (
+              <field.TextField
+                id="classroom-name"
+                label={t("classrooms.form.name")}
+                placeholder={t("classrooms.form.namePlaceholder")}
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="stageId">
+            {(field) => (
+              <field.SelectField
+                label={t("classrooms.form.stage")}
+                ariaLabel={t("classrooms.form.stage")}
+                placeholder={t("classrooms.form.stagePlaceholder")}
+                options={stages.map((stage) => ({
+                  value: stage._id,
+                  label: stage.name,
+                }))}
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="teacherIds">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label>{t("classrooms.form.teachers")}</Label>
+                {teachers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("classrooms.form.noTeachers")}
+                  </p>
+                ) : (
+                  <div className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-lg border p-2">
+                    {teachers.map((teacher) => (
+                      <label
+                        key={teacher.userId}
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/60"
+                      >
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-primary"
+                          checked={field.state.value.includes(teacher.userId)}
+                          onChange={(e) =>
+                            field.handleChange(
+                              e.target.checked
+                                ? [...field.state.value, teacher.userId]
+                                : field.state.value.filter(
+                                    (id) => id !== teacher.userId,
+                                  ),
+                            )
+                          }
+                        />
+                        {teacher.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          </form.AppField>
           {!online && (
             <p className="text-xs text-muted-foreground">
               {t("offline.requiresConnection")}
@@ -737,12 +754,13 @@ function ClassroomFormDialog({
             >
               {t("classrooms.form.cancel")}
             </Button>
-            <Button type="submit" disabled={saving || !online}>
-              {saving && <Spinner data-icon="inline-start" />}
-              {classroom !== undefined
-                ? t("classrooms.form.save")
-                : t("classrooms.form.create")}
-            </Button>
+            <form.AppForm>
+              <form.SubmitButton disabled={!online}>
+                {classroom !== undefined
+                  ? t("classrooms.form.save")
+                  : t("classrooms.form.create")}
+              </form.SubmitButton>
+            </form.AppForm>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -3,7 +3,8 @@
 // Fee plans (FR-FIN-1): CRUD for tuition plans. admin + accountant.
 // Deleting a plan referenced by any enrollment fails with plan_in_use.
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { z } from "zod";
 import { useMutation } from "convex/react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useCachedQuery } from "@/lib/offline/use-cached-query";
 import { useOnline } from "@/lib/offline/use-online";
+import { useAppForm } from "@/lib/form";
 import { useT } from "@/lib/i18n";
 import { DataAge } from "@/components/data-age";
 import {
@@ -33,15 +35,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -247,42 +240,49 @@ function PlanFormDialog({
   const createPlan = useMutation(api.feePlans.create);
   const updatePlan = useMutation(api.feePlans.update);
 
-  const [name, setName] = useState(plan?.name ?? "");
-  const [amount, setAmount] = useState(
-    plan !== null ? filsToJodInput(plan.amountFils) : "",
-  );
-  const [cadence, setCadence] = useState<Cadence>(plan?.cadence ?? "monthly");
-  const [saving, setSaving] = useState(false);
+  const schema = z.object({
+    name: z.string(),
+    amount: z.string().refine((v) => parseJodOrNull(v) !== null, {
+      message: t("finance.error.invalidAmount"),
+    }),
+    cadence: z.enum(CADENCES),
+  });
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const amountFils = parseJodOrNull(amount);
-    if (amountFils === null) {
-      toast.error(t("finance.error.invalidAmount"));
-      return;
-    }
-    setSaving(true);
-    try {
-      if (plan !== null) {
-        await updatePlan({
-          nurseryId,
-          feePlanId: plan._id,
-          name: name.trim(),
-          amountFils,
-          cadence,
-        });
-        toast.success(t("finance.toast.planUpdated"));
-      } else {
-        await createPlan({ nurseryId, name: name.trim(), amountFils, cadence });
-        toast.success(t("finance.toast.planCreated"));
+  const form = useAppForm({
+    defaultValues: {
+      name: plan?.name ?? "",
+      amount: plan !== null ? filsToJodInput(plan.amountFils) : "",
+      cadence: plan?.cadence ?? "monthly",
+    },
+    validators: { onChange: schema },
+    onSubmit: async ({ value }) => {
+      const amountFils = parseJodOrNull(value.amount);
+      if (amountFils === null) return;
+      try {
+        if (plan !== null) {
+          await updatePlan({
+            nurseryId,
+            feePlanId: plan._id,
+            name: value.name.trim(),
+            amountFils,
+            cadence: value.cadence,
+          });
+          toast.success(t("finance.toast.planUpdated"));
+        } else {
+          await createPlan({
+            nurseryId,
+            name: value.name.trim(),
+            amountFils,
+            cadence: value.cadence,
+          });
+          toast.success(t("finance.toast.planCreated"));
+        }
+        onOpenChange(false);
+      } catch {
+        toast.error(t("finance.error.generic"));
       }
-      onOpenChange(false);
-    } catch {
-      toast.error(t("finance.error.generic"));
-    } finally {
-      setSaving(false);
-    }
-  }
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -297,54 +297,49 @@ function PlanFormDialog({
             {t("finance.plans.title")}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="plan-name">{t("finance.plans.form.name")}</Label>
-            <Input
-              id="plan-name"
-              required
-              placeholder={t("finance.plans.form.namePlaceholder")}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="plan-amount">
-                {t("finance.plans.form.amount")}
-              </Label>
-              <Input
-                id="plan-amount"
-                dir="ltr"
-                inputMode="decimal"
-                placeholder="85.000"
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <form.AppField name="name">
+            {(field) => (
+              <field.TextField
+                id="plan-name"
                 required
-                className="text-start tabular-nums"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                label={t("finance.plans.form.name")}
+                placeholder={t("finance.plans.form.namePlaceholder")}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>{t("finance.plans.form.cadence")}</Label>
-              <Select
-                value={cadence}
-                onValueChange={(v) => setCadence(v as Cadence)}
-              >
-                <SelectTrigger
-                  className="w-full"
-                  aria-label={t("finance.plans.form.cadence")}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CADENCES.map((c) => (
-                    <SelectItem key={c} value={c}>
-                      {t(`finance.cadence.${c}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            )}
+          </form.AppField>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <form.AppField name="amount">
+              {(field) => (
+                <field.TextField
+                  id="plan-amount"
+                  dir="ltr"
+                  inputMode="decimal"
+                  placeholder="85.000"
+                  required
+                  className="text-start tabular-nums"
+                  label={t("finance.plans.form.amount")}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="cadence">
+              {(field) => (
+                <field.SelectField
+                  label={t("finance.plans.form.cadence")}
+                  ariaLabel={t("finance.plans.form.cadence")}
+                  options={CADENCES.map((c) => ({
+                    value: c,
+                    label: t(`finance.cadence.${c}`),
+                  }))}
+                />
+              )}
+            </form.AppField>
           </div>
           <FinanceOfflineNote />
           <DialogFooter className="gap-2">
@@ -355,12 +350,11 @@ function PlanFormDialog({
             >
               {t("staff.cancel")}
             </Button>
-            <Button type="submit" disabled={saving || !online}>
-              {saving && <Spinner data-icon="inline-start" />}
-              {saving
-                ? t("finance.plans.form.saving")
-                : t("finance.plans.form.save")}
-            </Button>
+            <form.AppForm>
+              <form.SubmitButton disabled={!online}>
+                {t("finance.plans.form.save")}
+              </form.SubmitButton>
+            </form.AppForm>
           </DialogFooter>
         </form>
       </DialogContent>

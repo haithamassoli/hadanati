@@ -5,7 +5,8 @@
 // are reachable from more than one page. All money values are INTEGER FILS —
 // JOD only ever exists as text in inputs (parseJodToFils on submit).
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { z } from "zod";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMutation } from "convex/react";
@@ -16,6 +17,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { formatFils, parseJodToFils, todayISO } from "@/convex/lib/shared";
 import { useCachedQuery } from "@/lib/offline/use-cached-query";
 import { useOnline } from "@/lib/offline/use-online";
+import { useAppForm } from "@/lib/form";
 import { useT, type Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { formatCount } from "@/app/(staff)/students/format";
@@ -30,15 +32,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 
 export type FinanceRole = "admin" | "accountant";
@@ -294,49 +287,45 @@ export function ManualInvoiceDialog({
   ).data;
   const createManual = useMutation(api.invoices.createManual);
 
-  const [studentId, setStudentId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [dueDate, setDueDate] = useState(todayISO());
-  const [description, setDescription] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  function reset() {
-    setStudentId("");
-    setAmount("");
-    setDueDate(todayISO());
-    setDescription("");
-  }
-
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (studentId === "") {
-      toast.error(t("finance.error.selectStudent"));
-      return;
-    }
-    const amountFils = parseJodOrNull(amount);
-    if (amountFils === null) {
-      toast.error(t("finance.error.invalidAmount"));
-      return;
-    }
-    setSaving(true);
-    try {
-      await createManual({
-        nurseryId,
-        studentId: studentId as Id<"students">,
-        amountFils,
-        dueDate,
-        description:
-          description.trim() === "" ? undefined : description.trim(),
-      });
-      toast.success(t("finance.toast.invoiceCreated"));
-      reset();
-      onOpenChange(false);
-    } catch {
-      toast.error(t("finance.error.generic"));
-    } finally {
-      setSaving(false);
-    }
-  }
+  const form = useAppForm({
+    defaultValues: {
+      studentId: "",
+      amount: "",
+      dueDate: todayISO(),
+      description: "",
+    },
+    validators: {
+      onChange: z.object({
+        studentId: z.string().min(1, { message: t("finance.error.selectStudent") }),
+        amount: z.string().refine((v) => parseJodOrNull(v) !== null, {
+          message: t("finance.error.invalidAmount"),
+        }),
+        dueDate: z.string(),
+        description: z.string(),
+      }),
+    },
+    onSubmit: async ({ value }) => {
+      const amountFils = parseJodOrNull(value.amount);
+      if (amountFils === null) return;
+      try {
+        await createManual({
+          nurseryId,
+          studentId: value.studentId as Id<"students">,
+          amountFils,
+          dueDate: value.dueDate,
+          description:
+            value.description.trim() === ""
+              ? undefined
+              : value.description.trim(),
+        });
+        toast.success(t("finance.toast.invoiceCreated"));
+        form.reset();
+        onOpenChange(false);
+      } catch {
+        toast.error(t("finance.error.generic"));
+      }
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -345,67 +334,60 @@ export function ManualInvoiceDialog({
           <DialogTitle>{t("finance.newInvoice.title")}</DialogTitle>
           <DialogDescription>{t("finance.newInvoice.desc")}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label>{t("finance.newInvoice.student")}</Label>
-            <Select value={studentId} onValueChange={setStudentId}>
-              <SelectTrigger
-                className="w-full"
-                aria-label={t("finance.newInvoice.student")}
-              >
-                <SelectValue
-                  placeholder={t("finance.newInvoice.selectStudent")}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {students?.map((student) => (
-                  <SelectItem key={student._id} value={student._id}>
-                    {student.nameAr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <form.AppField name="studentId">
+            {(field) => (
+              <field.SelectField
+                label={t("finance.newInvoice.student")}
+                ariaLabel={t("finance.newInvoice.student")}
+                placeholder={t("finance.newInvoice.selectStudent")}
+                options={(students ?? []).map((student) => ({
+                  value: student._id,
+                  label: student.nameAr,
+                }))}
+              />
+            )}
+          </form.AppField>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="invoice-amount">
-                {t("finance.newInvoice.amount")}
-              </Label>
-              <Input
-                id="invoice-amount"
-                dir="ltr"
-                inputMode="decimal"
-                placeholder="85.000"
-                required
-                className="text-start tabular-nums"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="invoice-dueDate">
-                {t("finance.newInvoice.dueDate")}
-              </Label>
-              <Input
-                id="invoice-dueDate"
-                type="date"
-                required
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
+            <form.AppField name="amount">
+              {(field) => (
+                <field.TextField
+                  id="invoice-amount"
+                  dir="ltr"
+                  inputMode="decimal"
+                  placeholder="85.000"
+                  required
+                  className="text-start tabular-nums"
+                  label={t("finance.newInvoice.amount")}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="dueDate">
+              {(field) => (
+                <field.TextField
+                  id="invoice-dueDate"
+                  type="date"
+                  required
+                  label={t("finance.newInvoice.dueDate")}
+                />
+              )}
+            </form.AppField>
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="invoice-description">
-              {t("finance.newInvoice.description")}
-            </Label>
-            <Input
-              id="invoice-description"
-              placeholder={t("finance.newInvoice.descriptionPlaceholder")}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
+          <form.AppField name="description">
+            {(field) => (
+              <field.TextField
+                id="invoice-description"
+                placeholder={t("finance.newInvoice.descriptionPlaceholder")}
+                label={t("finance.newInvoice.description")}
+              />
+            )}
+          </form.AppField>
           <FinanceOfflineNote />
           <DialogFooter className="gap-2">
             <Button
@@ -415,12 +397,11 @@ export function ManualInvoiceDialog({
             >
               {t("staff.cancel")}
             </Button>
-            <Button type="submit" disabled={saving || !online}>
-              {saving && <Spinner data-icon="inline-start" />}
-              {saving
-                ? t("finance.newInvoice.creating")
-                : t("finance.newInvoice.create")}
-            </Button>
+            <form.AppForm>
+              <form.SubmitButton disabled={!online}>
+                {t("finance.newInvoice.create")}
+              </form.SubmitButton>
+            </form.AppForm>
           </DialogFooter>
         </form>
       </DialogContent>

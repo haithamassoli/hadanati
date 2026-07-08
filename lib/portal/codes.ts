@@ -100,14 +100,15 @@ export function getCodes(): CodesState {
   return read();
 }
 
-/** Add (or refresh) a code and make it the active child. */
-export function addCode(entry: StoredCode) {
+/** Add (or refresh) a code and make it the active child. Stamps `addedAt`. */
+export function addCode(entry: Omit<StoredCode, "addedAt">) {
+  const stored: StoredCode = { ...entry, addedAt: Date.now() };
   const state = read();
-  const existing = state.codes.findIndex((c) => c.code === entry.code);
+  const existing = state.codes.findIndex((c) => c.code === stored.code);
   const codes =
     existing >= 0
-      ? state.codes.map((c, i) => (i === existing ? entry : c))
-      : [...state.codes, entry];
+      ? state.codes.map((c, i) => (i === existing ? stored : c))
+      : [...state.codes, stored];
   const activeIndex = existing >= 0 ? existing : codes.length - 1;
   write({ codes, activeIndex });
 }

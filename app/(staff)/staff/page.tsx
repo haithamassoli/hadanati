@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { z } from "zod";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { errorCode } from "@/lib/utils";
 import { Eye, EyeOff, Plus, ShieldAlert, Trash2 } from "lucide-react";
@@ -8,6 +9,7 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useOnline } from "@/lib/offline/use-online";
+import { useAppForm, FieldErrors } from "@/lib/form";
 import { useT } from "@/lib/i18n";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -278,41 +280,45 @@ function AddStaffDialog({
 }) {
   const { t } = useT();
   const createStaff = useAction(api.staff.createStaff);
-
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<Role>("teacher");
-  const [creating, setCreating] = useState(false);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (password.length < 8) {
-      toast.error(t("staff.form.validation.password"));
-      return;
-    }
-    setCreating(true);
-    try {
-      await createStaff({
-        nurseryId,
-        name: name.trim(),
-        email: email.trim(),
-        password,
-        role,
-      });
-      toast.success(t("staff.toast.created"));
-      onOpenChange(false);
-    } catch (error) {
-      toast.error(
-        errorCode(error) === "email_exists"
-          ? t("staff.error.emailExists")
-          : t("staff.error.generic"),
-      );
-    } finally {
-      setCreating(false);
-    }
-  }
+  const form = useAppForm({
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      role: "teacher" as Role,
+    },
+    validators: {
+      onChange: z.object({
+        name: z.string(),
+        email: z.string(),
+        password: z.string().min(8, {
+          message: t("staff.form.validation.password"),
+        }),
+        role: z.enum(["admin", "teacher", "accountant"]),
+      }),
+    },
+    onSubmit: async ({ value }) => {
+      try {
+        await createStaff({
+          nurseryId,
+          name: value.name.trim(),
+          email: value.email.trim(),
+          password: value.password,
+          role: value.role,
+        });
+        toast.success(t("staff.toast.created"));
+        onOpenChange(false);
+      } catch (error) {
+        toast.error(
+          errorCode(error) === "email_exists"
+            ? t("staff.error.emailExists")
+            : t("staff.error.generic"),
+        );
+      }
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -321,78 +327,81 @@ function AddStaffDialog({
           <DialogTitle>{t("staff.form.title")}</DialogTitle>
           <DialogDescription>{t("staff.form.desc")}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="staff-name">{t("staff.form.name")}</Label>
-            <Input
-              id="staff-name"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="staff-email">{t("staff.form.email")}</Label>
-            <Input
-              id="staff-email"
-              type="email"
-              required
-              dir="ltr"
-              className="text-start"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="staff-password">{t("staff.form.password")}</Label>
-            <div className="relative">
-              <Input
-                id="staff-password"
-                type={showPassword ? "text" : "password"}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <form.AppField name="name">
+            {(field) => (
+              <field.TextField id="staff-name" required label={t("staff.form.name")} />
+            )}
+          </form.AppField>
+          <form.AppField name="email">
+            {(field) => (
+              <field.TextField
+                id="staff-email"
+                type="email"
                 required
-                minLength={8}
                 dir="ltr"
-                className="pe-10 text-start"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                className="text-start"
+                label={t("staff.form.email")}
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="absolute end-1 top-1/2 -translate-y-1/2 text-muted-foreground"
-                aria-label={
-                  showPassword
-                    ? t("staff.form.hidePassword")
-                    : t("staff.form.showPassword")
-                }
-                onClick={() => setShowPassword((v) => !v)}
-              >
-                {showPassword ? <EyeOff /> : <Eye />}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t("staff.form.passwordHint")}
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label>{t("staff.form.role")}</Label>
-            <Select
-              value={role}
-              onValueChange={(value) => setRole(value as Role)}
-            >
-              <SelectTrigger className="w-full" aria-label={t("staff.form.role")}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ROLES.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {t(`staff.role.${r}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            )}
+          </form.AppField>
+          <form.AppField name="password">
+            {(field) => (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="staff-password">{t("staff.form.password")}</Label>
+                <div className="relative">
+                  <Input
+                    id="staff-password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    minLength={8}
+                    dir="ltr"
+                    className="pe-10 text-start"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="absolute end-1 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    aria-label={
+                      showPassword
+                        ? t("staff.form.hidePassword")
+                        : t("staff.form.showPassword")
+                    }
+                    onClick={() => setShowPassword((v) => !v)}
+                  >
+                    {showPassword ? <EyeOff /> : <Eye />}
+                  </Button>
+                </div>
+                <FieldErrors field={field} />
+                <p className="text-xs text-muted-foreground">
+                  {t("staff.form.passwordHint")}
+                </p>
+              </div>
+            )}
+          </form.AppField>
+          <form.AppField name="role">
+            {(field) => (
+              <field.SelectField
+                label={t("staff.form.role")}
+                ariaLabel={t("staff.form.role")}
+                options={ROLES.map((r) => ({
+                  value: r,
+                  label: t(`staff.role.${r}`),
+                }))}
+              />
+            )}
+          </form.AppField>
           <DialogFooter className="gap-2">
             <Button
               type="button"
@@ -401,10 +410,9 @@ function AddStaffDialog({
             >
               {t("staff.form.cancel")}
             </Button>
-            <Button type="submit" disabled={creating}>
-              {creating && <Spinner data-icon="inline-start" />}
-              {creating ? t("staff.form.creating") : t("staff.form.create")}
-            </Button>
+            <form.AppForm>
+              <form.SubmitButton>{t("staff.form.create")}</form.SubmitButton>
+            </form.AppForm>
           </DialogFooter>
         </form>
       </DialogContent>

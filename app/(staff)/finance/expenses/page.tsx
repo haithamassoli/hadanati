@@ -3,7 +3,8 @@
 // Expenses (FR-FIN-4): month picker + list + create/edit/delete.
 // admin + accountant; writes online-only (FR-FIN-6).
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import { z } from "zod";
 import { useMutation } from "convex/react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +13,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { todayISO } from "@/convex/lib/shared";
 import { useCachedQuery } from "@/lib/offline/use-cached-query";
 import { useOnline } from "@/lib/offline/use-online";
+import { useAppForm } from "@/lib/form";
 import { useT } from "@/lib/i18n";
 import { DataAge } from "@/components/data-age";
 import {
@@ -280,44 +282,47 @@ function ExpenseFormDialog({
   const createExpense = useMutation(api.expenses.create);
   const updateExpense = useMutation(api.expenses.update);
 
-  const [date, setDate] = useState(expense?.date ?? todayISO());
-  const [category, setCategory] = useState(expense?.category ?? "");
-  const [amount, setAmount] = useState(
-    expense !== null ? filsToJodInput(expense.amountFils) : "",
-  );
-  const [note, setNote] = useState(expense?.note ?? "");
-  const [saving, setSaving] = useState(false);
-
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const amountFils = parseJodOrNull(amount);
-    if (amountFils === null) {
-      toast.error(t("finance.error.invalidAmount"));
-      return;
-    }
-    setSaving(true);
-    try {
-      const common = {
-        nurseryId,
-        date,
-        category: category.trim(),
-        amountFils,
-        note: note.trim() === "" ? undefined : note.trim(),
-      };
-      if (expense !== null) {
-        await updateExpense({ ...common, expenseId: expense._id });
-        toast.success(t("finance.toast.expenseUpdated"));
-      } else {
-        await createExpense(common);
-        toast.success(t("finance.toast.expenseCreated"));
+  const form = useAppForm({
+    defaultValues: {
+      date: expense?.date ?? todayISO(),
+      category: expense?.category ?? "",
+      amount: expense !== null ? filsToJodInput(expense.amountFils) : "",
+      note: expense?.note ?? "",
+    },
+    validators: {
+      onChange: z.object({
+        date: z.string(),
+        category: z.string(),
+        amount: z.string().refine((v) => parseJodOrNull(v) !== null, {
+          message: t("finance.error.invalidAmount"),
+        }),
+        note: z.string(),
+      }),
+    },
+    onSubmit: async ({ value }) => {
+      const amountFils = parseJodOrNull(value.amount);
+      if (amountFils === null) return;
+      try {
+        const common = {
+          nurseryId,
+          date: value.date,
+          category: value.category.trim(),
+          amountFils,
+          note: value.note.trim() === "" ? undefined : value.note.trim(),
+        };
+        if (expense !== null) {
+          await updateExpense({ ...common, expenseId: expense._id });
+          toast.success(t("finance.toast.expenseUpdated"));
+        } else {
+          await createExpense(common);
+          toast.success(t("finance.toast.expenseCreated"));
+        }
+        onOpenChange(false);
+      } catch {
+        toast.error(t("finance.error.generic"));
       }
-      onOpenChange(false);
-    } catch {
-      toast.error(t("finance.error.generic"));
-    } finally {
-      setSaving(false);
-    }
-  }
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -332,63 +337,63 @@ function ExpenseFormDialog({
             {t("finance.expenses.title")}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="flex flex-col gap-4"
+        >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="expense-date">
-                {t("finance.expenses.form.date")}
-              </Label>
-              <Input
-                id="expense-date"
-                type="date"
-                required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="expense-amount">
-                {t("finance.expenses.form.amount")}
-              </Label>
-              <Input
-                id="expense-amount"
-                dir="ltr"
-                inputMode="decimal"
-                placeholder="12.500"
-                required
-                className="text-start tabular-nums"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-            </div>
+            <form.AppField name="date">
+              {(field) => (
+                <field.TextField
+                  id="expense-date"
+                  type="date"
+                  required
+                  label={t("finance.expenses.form.date")}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="amount">
+              {(field) => (
+                <field.TextField
+                  id="expense-amount"
+                  dir="ltr"
+                  inputMode="decimal"
+                  placeholder="12.500"
+                  required
+                  className="text-start tabular-nums"
+                  label={t("finance.expenses.form.amount")}
+                />
+              )}
+            </form.AppField>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="expense-category">
-              {t("finance.expenses.form.category")}
-            </Label>
-            <Input
-              id="expense-category"
-              required
-              list="expense-categories"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            />
+            <form.AppField name="category">
+              {(field) => (
+                <field.TextField
+                  id="expense-category"
+                  required
+                  list="expense-categories"
+                  label={t("finance.expenses.form.category")}
+                />
+              )}
+            </form.AppField>
             <datalist id="expense-categories">
               {CATEGORY_KEYS.map((key) => (
                 <option key={key} value={t(key)} />
               ))}
             </datalist>
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="expense-note">
-              {t("finance.expenses.form.note")}
-            </Label>
-            <Input
-              id="expense-note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
+          <form.AppField name="note">
+            {(field) => (
+              <field.TextField
+                id="expense-note"
+                label={t("finance.expenses.form.note")}
+              />
+            )}
+          </form.AppField>
           <FinanceOfflineNote />
           <DialogFooter className="gap-2">
             <Button
@@ -398,12 +403,11 @@ function ExpenseFormDialog({
             >
               {t("staff.cancel")}
             </Button>
-            <Button type="submit" disabled={saving || !online}>
-              {saving && <Spinner data-icon="inline-start" />}
-              {saving
-                ? t("finance.expenses.form.saving")
-                : t("finance.expenses.form.save")}
-            </Button>
+            <form.AppForm>
+              <form.SubmitButton disabled={!online}>
+                {t("finance.expenses.form.save")}
+              </form.SubmitButton>
+            </form.AppForm>
           </DialogFooter>
         </form>
       </DialogContent>

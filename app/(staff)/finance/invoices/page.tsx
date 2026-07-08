@@ -3,7 +3,8 @@
 // Invoices (FR-FIN-2): filter tabs, student search, bulk month generation,
 // manual invoices, detail sheet with payments / void / print links.
 
-import { Suspense, useState, type FormEvent } from "react";
+import { Suspense, useState } from "react";
+import { z } from "zod";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "convex/react";
@@ -14,6 +15,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { todayISO } from "@/convex/lib/shared";
 import { useCachedQuery } from "@/lib/offline/use-cached-query";
 import { useOnline } from "@/lib/offline/use-online";
+import { useAppForm } from "@/lib/form";
 import { useT } from "@/lib/i18n";
 import { DataAge } from "@/components/data-age";
 import {
@@ -37,14 +39,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
@@ -524,47 +518,52 @@ function PaymentDialog({
   const online = useOnline();
   const createPayment = useMutation(api.payments.create);
 
-  // Prefill: the remaining balance as editable JOD text.
-  const [amount, setAmount] = useState(filsToJodInput(remainingFils));
-  const [method, setMethod] = useState<(typeof METHODS)[number]>("cash");
-  const [paidAt, setPaidAt] = useState(todayISO());
-  const [note, setNote] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const amountFils = parseJodOrNull(amount);
-    if (amountFils === null) {
-      toast.error(t("finance.error.invalidAmount"));
-      return;
-    }
-    setSaving(true);
-    try {
-      await createPayment({
-        nurseryId,
-        invoiceId,
-        amountFils,
-        method,
-        paidAt,
-        note: note.trim() === "" ? undefined : note.trim(),
-      });
-      toast.success(t("finance.toast.paymentRecorded"));
-      onOpenChange(false);
-    } catch (error) {
-      const code = errorCode(error);
-      toast.error(
-        code === "exceeds_balance"
-          ? t("finance.error.exceedsBalance")
-          : code === "not_payable"
-            ? t("finance.error.notPayable")
-            : code === "invalid_amount"
-              ? t("finance.error.invalidAmount")
-              : t("finance.error.generic"),
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
+  const form = useAppForm({
+    // Prefill: the remaining balance as editable JOD text.
+    defaultValues: {
+      amount: filsToJodInput(remainingFils),
+      method: "cash" as (typeof METHODS)[number],
+      paidAt: todayISO(),
+      note: "",
+    },
+    validators: {
+      onChange: z.object({
+        amount: z.string().refine((v) => parseJodOrNull(v) !== null, {
+          message: t("finance.error.invalidAmount"),
+        }),
+        method: z.enum(METHODS),
+        paidAt: z.string(),
+        note: z.string(),
+      }),
+    },
+    onSubmit: async ({ value }) => {
+      const amountFils = parseJodOrNull(value.amount);
+      if (amountFils === null) return;
+      try {
+        await createPayment({
+          nurseryId,
+          invoiceId,
+          amountFils,
+          method: value.method,
+          paidAt: value.paidAt,
+          note: value.note.trim() === "" ? undefined : value.note.trim(),
+        });
+        toast.success(t("finance.toast.paymentRecorded"));
+        onOpenChange(false);
+      } catch (error) {
+        const code = errorCode(error);
+        toast.error(
+          code === "exceeds_balance"
+            ? t("finance.error.exceedsBalance")
+            : code === "not_payable"
+              ? t("finance.error.notPayable")
+              : code === "invalid_amount"
+                ? t("finance.error.invalidAmount")
+                : t("finance.error.generic"),
+        );
+      }
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -573,63 +572,58 @@ function PaymentDialog({
           <DialogTitle>{t("finance.payment.title")}</DialogTitle>
           <DialogDescription>{t("finance.payment.desc")}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+          className="flex flex-col gap-4"
+        >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="payment-amount">
-                {t("finance.payment.amount")}
-              </Label>
-              <Input
-                id="payment-amount"
-                dir="ltr"
-                inputMode="decimal"
-                placeholder="85.000"
+            <form.AppField name="amount">
+              {(field) => (
+                <field.TextField
+                  id="payment-amount"
+                  dir="ltr"
+                  inputMode="decimal"
+                  placeholder="85.000"
+                  required
+                  className="text-start tabular-nums"
+                  label={t("finance.payment.amount")}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="method">
+              {(field) => (
+                <field.SelectField
+                  label={t("finance.payment.method")}
+                  ariaLabel={t("finance.payment.method")}
+                  options={METHODS.map((m) => ({
+                    value: m,
+                    label: t(`finance.method.${m}`),
+                  }))}
+                />
+              )}
+            </form.AppField>
+          </div>
+          <form.AppField name="paidAt">
+            {(field) => (
+              <field.TextField
+                id="payment-paidAt"
+                type="date"
                 required
-                className="text-start tabular-nums"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                label={t("finance.payment.paidAt")}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>{t("finance.payment.method")}</Label>
-              <Select
-                value={method}
-                onValueChange={(v) => setMethod(v as (typeof METHODS)[number])}
-              >
-                <SelectTrigger
-                  className="w-full"
-                  aria-label={t("finance.payment.method")}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {METHODS.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {t(`finance.method.${m}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="payment-paidAt">{t("finance.payment.paidAt")}</Label>
-            <Input
-              id="payment-paidAt"
-              type="date"
-              required
-              value={paidAt}
-              onChange={(e) => setPaidAt(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="payment-note">{t("finance.payment.note")}</Label>
-            <Input
-              id="payment-note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
+            )}
+          </form.AppField>
+          <form.AppField name="note">
+            {(field) => (
+              <field.TextField
+                id="payment-note"
+                label={t("finance.payment.note")}
+              />
+            )}
+          </form.AppField>
           <FinanceOfflineNote />
           <DialogFooter className="gap-2">
             <Button
@@ -639,10 +633,11 @@ function PaymentDialog({
             >
               {t("staff.cancel")}
             </Button>
-            <Button type="submit" disabled={saving || !online}>
-              {saving && <Spinner data-icon="inline-start" />}
-              {saving ? t("finance.payment.saving") : t("finance.payment.save")}
-            </Button>
+            <form.AppForm>
+              <form.SubmitButton disabled={!online}>
+                {t("finance.payment.save")}
+              </form.SubmitButton>
+            </form.AppForm>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { z } from "zod";
 import { useMutation, useQuery } from "convex/react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { formatFils } from "@/convex/lib/shared";
 import { useOnline } from "@/lib/offline/use-online";
+import { useAppForm } from "@/lib/form";
 import { useT } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,18 +19,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 
 const RELATION_OPTIONS = [
   { value: "أب", key: "students.relation.father" },
@@ -139,262 +130,286 @@ function StudentFormFields({
     newEnrollment ? { nurseryId } : "skip",
   );
 
-  const [nameAr, setNameAr] = useState(student?.nameAr ?? "");
-  const [nameEn, setNameEn] = useState(student?.nameEn ?? "");
-  const [dob, setDob] = useState(student?.dob ?? "");
-  const [sex, setSex] = useState<"m" | "f" | "">(student?.sex ?? "");
-  const [guardians, setGuardians] = useState<GuardianRow[]>(
-    student && student.guardians.length > 0
-      ? student.guardians.map(toGuardianRow)
-      : [{ ...EMPTY_ROW }],
-  );
-  const [health, setHealth] = useState(student?.health ?? "");
-  const [consentPhotos, setConsentPhotos] = useState(
-    student?.consent.photos ?? false,
-  );
-  const [classroomId, setClassroomId] = useState<string>(
-    currentClassroomId ?? NO_CLASSROOM,
-  );
-  const [feePlanId, setFeePlanId] = useState<string>(NO_PLAN);
-  const [saving, setSaving] = useState(false);
-
   const stageName = (stageId: Id<"stages">) =>
     stages?.find((s) => s._id === stageId)?.name ?? "";
 
-  function patchGuardian(index: number, patch: Partial<GuardianRow>) {
-    setGuardians((rows) =>
-      rows.map((row, i) => (i === index ? { ...row, ...patch } : row)),
-    );
-  }
-
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (nameAr.trim() === "") {
-      toast.error(t("students.form.validation.nameAr"));
-      return;
-    }
-    if (dob === "") {
-      toast.error(t("students.form.validation.dob"));
-      return;
-    }
-    const filled = guardians.filter(
-      (g) => g.name.trim() !== "" || g.phone.trim() !== "",
-    );
-    if (filled.some((g) => g.name.trim() === "" || g.phone.trim() === "")) {
-      toast.error(t("students.form.validation.guardian"));
-      return;
-    }
-    const guardianDocs = filled.map((g) => ({
-      name: g.name.trim(),
-      phone: g.phone.trim(),
-      relation:
-        g.relation === OTHER
-          ? g.otherRelation.trim() || t("students.relation.other")
-          : g.relation,
-    }));
-
-    setSaving(true);
-    try {
-      const chosenClassroomId =
-        classroomId === NO_CLASSROOM
-          ? undefined
-          : (classroomId as Id<"classrooms">);
-      const chosenPlanId =
-        newEnrollment && feePlanId !== NO_PLAN
-          ? (feePlanId as Id<"feePlans">)
-          : undefined;
-      const yearId = mine?.nursery.activeYear.yearId;
-      // A fee plan rides on the enrollment, so a new enrollment with a plan
-      // goes through enrollments.enroll (which accepts feePlanId).
-      const viaEnroll =
-        chosenClassroomId !== undefined &&
-        chosenPlanId !== undefined &&
-        yearId !== undefined;
-      const common = {
-        nurseryId,
-        nameAr: nameAr.trim(),
-        nameEn: nameEn.trim() === "" ? undefined : nameEn.trim(),
-        dob,
-        sex: (sex === "" ? "m" : sex) as "m" | "f",
-        guardians: guardianDocs,
-        health: health.trim() === "" ? undefined : health.trim(),
-        consentPhotos,
-        classroomId: viaEnroll ? undefined : chosenClassroomId,
-      };
-      let targetStudentId: Id<"students">;
-      if (student) {
-        await updateStudent({ ...common, studentId: student._id });
-        targetStudentId = student._id;
-      } else {
-        targetStudentId = await createStudent(common);
-      }
-      if (viaEnroll) {
-        await enroll({
+  const form = useAppForm({
+    defaultValues: {
+      nameAr: student?.nameAr ?? "",
+      nameEn: student?.nameEn ?? "",
+      dob: student?.dob ?? "",
+      sex: (student?.sex ?? "") as "m" | "f" | "",
+      guardians:
+        student && student.guardians.length > 0
+          ? student.guardians.map(toGuardianRow)
+          : [{ ...EMPTY_ROW }],
+      health: student?.health ?? "",
+      consentPhotos: student?.consent.photos ?? false,
+      classroomId: (currentClassroomId ?? NO_CLASSROOM) as string,
+      feePlanId: NO_PLAN as string,
+    },
+    validators: {
+      onChange: z.object({
+        nameAr: z.string().refine((v) => v.trim() !== "", {
+          message: t("students.form.validation.nameAr"),
+        }),
+        nameEn: z.string(),
+        dob: z.string().refine((v) => v !== "", {
+          message: t("students.form.validation.dob"),
+        }),
+        sex: z.enum(["m", "f", ""]),
+        guardians: z
+          .array(
+            z.object({
+              name: z.string(),
+              phone: z.string(),
+              relation: z.string(),
+              otherRelation: z.string(),
+            }),
+          )
+          .superRefine((rows, ctx) => {
+            // A guardian row is either blank or complete — a name without a
+            // phone (or vice versa) is the only invalid shape.
+            rows.forEach((g, i) => {
+              const hasName = g.name.trim() !== "";
+              const hasPhone = g.phone.trim() !== "";
+              if ((hasName || hasPhone) && !(hasName && hasPhone)) {
+                ctx.addIssue({
+                  code: "custom",
+                  message: t("students.form.validation.guardian"),
+                  path: [i, hasName ? "phone" : "name"],
+                });
+              }
+            });
+          }),
+        health: z.string(),
+        consentPhotos: z.boolean(),
+        classroomId: z.string(),
+        feePlanId: z.string(),
+      }),
+    },
+    onSubmit: async ({ value }) => {
+      const guardianDocs = value.guardians
+        .filter((g) => g.name.trim() !== "" || g.phone.trim() !== "")
+        .map((g) => ({
+          name: g.name.trim(),
+          phone: g.phone.trim(),
+          relation:
+            g.relation === OTHER
+              ? g.otherRelation.trim() || t("students.relation.other")
+              : g.relation,
+        }));
+      try {
+        const chosenClassroomId =
+          value.classroomId === NO_CLASSROOM
+            ? undefined
+            : (value.classroomId as Id<"classrooms">);
+        const chosenPlanId =
+          newEnrollment && value.feePlanId !== NO_PLAN
+            ? (value.feePlanId as Id<"feePlans">)
+            : undefined;
+        const yearId = mine?.nursery.activeYear.yearId;
+        // A fee plan rides on the enrollment, so a new enrollment with a plan
+        // goes through enrollments.enroll (which accepts feePlanId).
+        const viaEnroll =
+          chosenClassroomId !== undefined &&
+          chosenPlanId !== undefined &&
+          yearId !== undefined;
+        const common = {
           nurseryId,
-          studentId: targetStudentId,
-          classroomId: chosenClassroomId,
-          yearId,
-          feePlanId: chosenPlanId,
-        });
+          nameAr: value.nameAr.trim(),
+          nameEn: value.nameEn.trim() === "" ? undefined : value.nameEn.trim(),
+          dob: value.dob,
+          sex: (value.sex === "" ? "m" : value.sex) as "m" | "f",
+          guardians: guardianDocs,
+          health: value.health.trim() === "" ? undefined : value.health.trim(),
+          consentPhotos: value.consentPhotos,
+          classroomId: viaEnroll ? undefined : chosenClassroomId,
+        };
+        let targetStudentId: Id<"students">;
+        if (student) {
+          await updateStudent({ ...common, studentId: student._id });
+          targetStudentId = student._id;
+        } else {
+          targetStudentId = await createStudent(common);
+        }
+        if (viaEnroll) {
+          await enroll({
+            nurseryId,
+            studentId: targetStudentId,
+            classroomId: chosenClassroomId,
+            yearId,
+            feePlanId: chosenPlanId,
+          });
+        }
+        toast.success(
+          student ? t("students.toast.updated") : t("students.toast.created"),
+        );
+        onDone();
+      } catch {
+        toast.error(t("students.toast.error"));
       }
-      toast.success(
-        student ? t("students.toast.updated") : t("students.toast.created"),
-      );
-      onDone();
-    } catch {
-      toast.error(t("students.toast.error"));
-    } finally {
-      setSaving(false);
-    }
-  }
+    },
+  });
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="student-nameAr">{t("students.form.nameAr")}</Label>
-        <Input
-          id="student-nameAr"
-          dir="rtl"
-          required
-          value={nameAr}
-          onChange={(e) => setNameAr(e.target.value)}
-        />
-      </div>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void form.handleSubmit();
+      }}
+      className="flex flex-col gap-4"
+    >
+      <form.AppField name="nameAr">
+        {(field) => (
+          <field.TextField
+            id="student-nameAr"
+            dir="rtl"
+            label={t("students.form.nameAr")}
+          />
+        )}
+      </form.AppField>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="student-nameEn">{t("students.form.nameEn")}</Label>
-        <Input
-          id="student-nameEn"
-          dir="ltr"
-          className="text-start"
-          value={nameEn}
-          onChange={(e) => setNameEn(e.target.value)}
-        />
-      </div>
+      <form.AppField name="nameEn">
+        {(field) => (
+          <field.TextField
+            id="student-nameEn"
+            dir="ltr"
+            className="text-start"
+            label={t("students.form.nameEn")}
+          />
+        )}
+      </form.AppField>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="student-dob">{t("students.form.dob")}</Label>
-          <Input
-            id="student-dob"
-            type="date"
-            required
-            value={dob}
-            onChange={(e) => setDob(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label>{t("students.form.sex")}</Label>
-          <Select
-            value={sex}
-            onValueChange={(value) => setSex(value as "m" | "f")}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("students.form.sex")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="m">{t("students.sex.m")}</SelectItem>
-              <SelectItem value="f">{t("students.sex.f")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <form.AppField name="dob">
+          {(field) => (
+            <field.TextField
+              id="student-dob"
+              type="date"
+              label={t("students.form.dob")}
+            />
+          )}
+        </form.AppField>
+        <form.AppField name="sex">
+          {(field) => (
+            <field.SelectField
+              label={t("students.form.sex")}
+              placeholder={t("students.form.sex")}
+              options={[
+                { value: "m", label: t("students.sex.m") },
+                { value: "f", label: t("students.sex.f") },
+              ]}
+            />
+          )}
+        </form.AppField>
       </div>
 
       <fieldset className="flex flex-col gap-3 rounded-lg border p-3">
         <legend className="px-1 text-sm font-medium">
           {t("students.form.guardians")}
         </legend>
-        {guardians.map((guardian, index) => (
-          <div key={index} className="flex flex-col gap-2 rounded-md bg-muted/40 p-2">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Input
-                aria-label={t("students.form.guardianName")}
-                placeholder={t("students.form.guardianName")}
-                value={guardian.name}
-                onChange={(e) => patchGuardian(index, { name: e.target.value })}
-              />
-              <Input
-                aria-label={t("students.form.guardianPhone")}
-                placeholder={t("students.form.guardianPhone")}
-                type="tel"
-                dir="ltr"
-                className="text-start"
-                value={guardian.phone}
-                onChange={(e) => patchGuardian(index, { phone: e.target.value })}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Select
-                value={guardian.relation}
-                onValueChange={(value) =>
-                  patchGuardian(index, { relation: value })
-                }
+        <form.Field name="guardians" mode="array">
+          {(guardiansField) => (
+            <>
+              {guardiansField.state.value.map((guardian, index) => (
+                <div
+                  key={index}
+                  className="flex flex-col gap-2 rounded-md bg-muted/40 p-2"
+                >
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <form.AppField name={`guardians[${index}].name`}>
+                      {(field) => (
+                        <field.TextField
+                          aria-label={t("students.form.guardianName")}
+                          placeholder={t("students.form.guardianName")}
+                        />
+                      )}
+                    </form.AppField>
+                    <form.AppField name={`guardians[${index}].phone`}>
+                      {(field) => (
+                        <field.TextField
+                          type="tel"
+                          dir="ltr"
+                          className="text-start"
+                          aria-label={t("students.form.guardianPhone")}
+                          placeholder={t("students.form.guardianPhone")}
+                        />
+                      )}
+                    </form.AppField>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <form.AppField name={`guardians[${index}].relation`}>
+                      {(field) => (
+                        <field.SelectField
+                          ariaLabel={t("students.form.guardianRelation")}
+                          placeholder={t("students.form.guardianRelation")}
+                          options={[
+                            ...RELATION_OPTIONS.map((option) => ({
+                              value: option.value,
+                              label: t(option.key),
+                            })),
+                            {
+                              value: OTHER,
+                              label: t("students.relation.other"),
+                            },
+                          ]}
+                        />
+                      )}
+                    </form.AppField>
+                    {guardian.relation === OTHER && (
+                      <form.AppField name={`guardians[${index}].otherRelation`}>
+                        {(field) => (
+                          <field.TextField
+                            aria-label={t(
+                              "students.form.relationOtherPlaceholder",
+                            )}
+                            placeholder={t(
+                              "students.form.relationOtherPlaceholder",
+                            )}
+                          />
+                        )}
+                      </form.AppField>
+                    )}
+                    {guardiansField.state.value.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("students.form.removeGuardian")}
+                        className="shrink-0 text-destructive hover:text-destructive"
+                        onClick={() => guardiansField.removeValue(index)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="self-start"
+                onClick={() => guardiansField.pushValue({ ...EMPTY_ROW })}
               >
-                <SelectTrigger
-                  className="w-full"
-                  aria-label={t("students.form.guardianRelation")}
-                >
-                  <SelectValue placeholder={t("students.form.guardianRelation")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {RELATION_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(option.key)}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value={OTHER}>
-                    {t("students.relation.other")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              {guardian.relation === OTHER && (
-                <Input
-                  aria-label={t("students.form.relationOtherPlaceholder")}
-                  placeholder={t("students.form.relationOtherPlaceholder")}
-                  value={guardian.otherRelation}
-                  onChange={(e) =>
-                    patchGuardian(index, { otherRelation: e.target.value })
-                  }
-                />
-              )}
-              {guardians.length > 1 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t("students.form.removeGuardian")}
-                  className="shrink-0 text-destructive hover:text-destructive"
-                  onClick={() =>
-                    setGuardians((rows) => rows.filter((_, i) => i !== index))
-                  }
-                >
-                  <Trash2 />
-                </Button>
-              )}
-            </div>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="self-start"
-          onClick={() => setGuardians((rows) => [...rows, { ...EMPTY_ROW }])}
-        >
-          <Plus data-icon="inline-start" />
-          {t("students.form.addGuardian")}
-        </Button>
+                <Plus data-icon="inline-start" />
+                {t("students.form.addGuardian")}
+              </Button>
+            </>
+          )}
+        </form.Field>
       </fieldset>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="student-health">{t("students.form.health")}</Label>
-        <Textarea
-          id="student-health"
-          placeholder={t("students.form.healthPlaceholder")}
-          value={health}
-          onChange={(e) => setHealth(e.target.value)}
-        />
-      </div>
+      <form.AppField name="health">
+        {(field) => (
+          <field.TextareaField
+            id="student-health"
+            placeholder={t("students.form.healthPlaceholder")}
+            label={t("students.form.health")}
+          />
+        )}
+      </form.AppField>
 
       <div className="flex items-start justify-between gap-3 rounded-lg border p-3">
         <div className="flex flex-col gap-1">
@@ -405,60 +420,62 @@ function StudentFormFields({
             {t("students.form.consentNote")}
           </p>
         </div>
-        <Switch
-          id="student-consent"
-          checked={consentPhotos}
-          onCheckedChange={setConsentPhotos}
-        />
+        <form.AppField name="consentPhotos">
+          {(field) => (
+            <Switch
+              id="student-consent"
+              checked={field.state.value}
+              onCheckedChange={(checked) => field.handleChange(checked)}
+            />
+          )}
+        </form.AppField>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label>{t("students.form.classroom")}</Label>
-        <Select value={classroomId} onValueChange={setClassroomId}>
-          <SelectTrigger
-            className="w-full"
-            aria-label={t("students.form.classroom")}
-          >
-            <SelectValue placeholder={t("students.form.classroom")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_CLASSROOM}>
-              {t("students.form.noClassroom")}
-            </SelectItem>
-            {classrooms?.map((classroom) => (
-              <SelectItem key={classroom._id} value={classroom._id}>
-                {stageName(classroom.stageId)} — {classroom.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <form.AppField name="classroomId">
+        {(field) => (
+          <field.SelectField
+            label={t("students.form.classroom")}
+            ariaLabel={t("students.form.classroom")}
+            placeholder={t("students.form.classroom")}
+            options={[
+              {
+                value: NO_CLASSROOM,
+                label: t("students.form.noClassroom"),
+              },
+              ...(classrooms ?? []).map((classroom) => ({
+                value: classroom._id,
+                label: `${stageName(classroom.stageId)} — ${classroom.name}`,
+              })),
+            ]}
+          />
+        )}
+      </form.AppField>
 
       {/* Fee plan (FR-FIN-1) — only for a NEW enrollment with a classroom. */}
-      {newEnrollment &&
-        classroomId !== NO_CLASSROOM &&
-        feePlans !== undefined &&
-        feePlans.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <Label>{t("finance.plan.label")}</Label>
-            <Select value={feePlanId} onValueChange={setFeePlanId}>
-              <SelectTrigger
-                className="w-full"
-                aria-label={t("finance.plan.label")}
-              >
-                <SelectValue placeholder={t("finance.plan.select")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_PLAN}>{t("finance.plan.none")}</SelectItem>
-                {feePlans.map((plan) => (
-                  <SelectItem key={plan._id} value={plan._id}>
-                    {plan.name} — {formatFils(plan.amountFils, locale)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+      {newEnrollment && feePlans !== undefined && feePlans.length > 0 && (
+        <form.Subscribe selector={(s) => s.values.classroomId}>
+          {(classroomId) =>
+            classroomId !== NO_CLASSROOM ? (
+              <form.AppField name="feePlanId">
+                {(field) => (
+                  <field.SelectField
+                    label={t("finance.plan.label")}
+                    ariaLabel={t("finance.plan.label")}
+                    placeholder={t("finance.plan.select")}
+                    options={[
+                      { value: NO_PLAN, label: t("finance.plan.none") },
+                      ...feePlans.map((plan) => ({
+                        value: plan._id,
+                        label: `${plan.name} — ${formatFils(plan.amountFils, locale)}`,
+                      })),
+                    ]}
+                  />
+                )}
+              </form.AppField>
+            ) : null
+          }
+        </form.Subscribe>
+      )}
 
       {/* FR-FIN-6 pattern (§8): student CRUD is online-only — no outbox. */}
       {!online && (
@@ -470,10 +487,11 @@ function StudentFormFields({
         <Button type="button" variant="outline" onClick={onDone}>
           {t("students.form.cancel")}
         </Button>
-        <Button type="submit" disabled={saving || !online}>
-          {saving && <Spinner data-icon="inline-start" />}
-          {student ? t("students.form.save") : t("students.form.create")}
-        </Button>
+        <form.AppForm>
+          <form.SubmitButton disabled={!online}>
+            {student ? t("students.form.save") : t("students.form.create")}
+          </form.SubmitButton>
+        </form.AppForm>
       </DialogFooter>
     </form>
   );
